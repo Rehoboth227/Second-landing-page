@@ -11,7 +11,7 @@ services/<name>.html           One page per subsidiary (10): Rheti, RehoCon, Reh
                                RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive
 products/aipay.html            AiPay: e-store with built-in payments
 products/greenfed.html         GreenFed: meal plans, groceries and community
-products/aimove.html           AiMove: logistics and delivery, with a fare estimator
+products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
 products/airise/               AiRise HR and employability site:
   index.html                     overview
   talent.html, employers.html    the two sides of the platform
@@ -25,7 +25,9 @@ products/airise/               AiRise HR and employability site:
   learn.html                     course player, e.g. learn.html?course=adaptability
   trainer.html                   trainer studio: course list and four-step course upload
 assets/css/styles.css          All styles (one file, design tokens at the top)
-assets/js/main.js              Shared interactions: menu, scroll reveal, counters, AiMove fare estimator
+assets/js/main.js              Shared interactions: menu, scroll reveal, counters
+assets/css/aimove-app.css      AiMove web app styles (light and dark)
+assets/js/aimove-app.js        AiMove web app: data, pricing, routing and every screen
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
 assets/css/airise-app.css      AiRise app pages (dashboard, course player, trainer studio)
 assets/js/airise-app.js        AiRise course data, dashboard and course player
@@ -55,8 +57,8 @@ is the quickest way.
   `.theme-am` (AiMove), `.theme-ar` (AiRise) and `.theme-rh` (Rheti).
 - **Breakpoints:** the layout adapts at 1100, 1024, 960, 860, 760, 600, 560, 520 and 480px.
   Every page has been checked at 320, 360, 390, 768, 1024 and 1440px with no horizontal scrolling.
-- **AiMove prices** in the fare estimator (`assets/js/main.js`) mirror the AiMove app's pricing engine:
-  update both together.
+- **AiMove prices** in `assets/js/aimove-app.js` (and the price table on the RehoTrans page) mirror the
+  AiMove Android app's pricing engine: update them together.
 - **Formatting:** files are formatted with Prettier (`npx prettier --print-width 120 --write .`).
 
 ## AiRise app pages
@@ -66,6 +68,18 @@ The dashboard, course player and trainer studio follow the "Online Learning" das
 They are front-end only: learner progress and trainers' courses are saved in the visitor's browser
 (localStorage), and uploaded files are not sent anywhere; only their names and sizes are kept.
 Connecting a backend (accounts, file storage, review queue) is the next step before launch.
+
+## AiMove web app
+
+`products/aimove.html` is the AiMove web app, not a marketing page. It follows the "upgrade Aimove" Figma
+screens and the AiMove Android app: sign-up and login (with OTP reset), home, send a package with an upfront
+fare, review and payment, live tracking with a PIN, book a rider, wallet and cards, chat, notifications and
+profile; a rider view (accept jobs, pickup, transit, PIN proof of delivery, earnings and payout); and an
+operations view (shipments, rider assignment, fleet GPS, API sandbox and logs). A "Viewing as" switch moves
+between the three roles, which share the same data.
+
+It is front-end only: data is saved in the browser (localStorage), payments, maps, calls and sign-in
+providers are simulated, and riders, distances and GPS positions are sample data until a backend is connected.
 
 ## Brand application
 
