@@ -2861,6 +2861,21 @@ ul {
   font-size: 14px;
   color: var(--ink-soft);
 }
+.rf-crop {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: 6px auto 16px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--bt);
+  box-shadow: 0 12px 24px -14px rgba(0, 0, 0, 0.35);
+}
+.rf-crop svg {
+  width: 40px;
+  height: 40px;
+}
 .gf-box--healthy {
   --bx: #fdf1cf;
   --bt: #b86e00;
