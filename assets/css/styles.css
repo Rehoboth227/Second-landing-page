@@ -6408,3 +6408,51 @@ ul {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* AiRise app previews (overview page) */
+.ar-app-previews {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.ar-app-preview {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--ar-line);
+  box-shadow: 0 30px 60px -30px rgba(13, 35, 87, 0.4);
+  transition: transform 0.4s var(--ease);
+}
+.ar-app-preview:hover {
+  transform: translateY(-6px);
+}
+.ar-app-preview img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top left;
+  border-bottom: 1px solid var(--ar-line);
+}
+.ar-app-preview > div {
+  padding: 24px 26px 28px;
+}
+.ar-app-preview h3 {
+  font-size: 22px;
+  color: var(--ar-navy);
+  margin: 8px 0 6px;
+}
+.ar-app-preview p {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+.ar-app-preview .ar-split__go {
+  margin-top: 16px;
+}
+@media (max-width: 860px) {
+  .ar-app-previews {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

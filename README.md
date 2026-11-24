@@ -21,9 +21,15 @@ products/airise/               AiRise HR and employability site:
   certificates.html              certificate types and number checker
   facilitators.html              delivery options and checklist
   platform.html, about.html      system design, roadmap and company story
+  dashboard.html                 learner dashboard (app layout)
+  learn.html                     course player, e.g. learn.html?course=adaptability
+  trainer.html                   trainer studio: course list and four-step course upload
 assets/css/styles.css          All styles (one file, design tokens at the top)
 assets/js/main.js              Shared interactions: menu, scroll reveal, counters, AiMove fare estimator
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
+assets/css/airise-app.css      AiRise app pages (dashboard, course player, trainer studio)
+assets/js/airise-app.js        AiRise course data, dashboard and course player
+assets/js/airise-trainer.js    Trainer studio: course list, upload wizard, quiz builder
 assets/img/                    Logos, favicon and photography
 assets/media/aipay/            AiPay walkthrough videos and their poster frames
 ```
@@ -52,6 +58,14 @@ is the quickest way.
 - **AiMove prices** in the fare estimator (`assets/js/main.js`) mirror the AiMove app's pricing engine:
   update both together.
 - **Formatting:** files are formatted with Prettier (`npx prettier --print-width 120 --write .`).
+
+## AiRise app pages
+
+The dashboard, course player and trainer studio follow the "Online Learning" dashboard layout and the
+"E Learning Site" course view from the Figma files, in AiRise navy and gold with Poppins (as on Rheti).
+They are front-end only: learner progress and trainers' courses are saved in the visitor's browser
+(localStorage), and uploaded files are not sent anywhere; only their names and sizes are kept.
+Connecting a backend (accounts, file storage, review queue) is the next step before launch.
 
 ## Brand application
 

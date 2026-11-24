@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trainer studio | AiRise</title>
+    <meta
+      name="description"
+      content="Upload and manage your AiRise courses: details, curriculum with video and document uploads, quizzes, and review."
+    />
+    <meta name="theme-color" content="#0D2357" />
+    <link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/css/airise-app.css" />
+  </head>
+  <body class="ar-app" data-page="trainer">
+    <a class="skip" href="#main">Skip to content</a>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-home" viewBox="0 0 24 24">
+        <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+      </symbol>
+      <symbol id="i-book" viewBox="0 0 24 24">
+        <path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3" /></symbol>
+      <symbol id="i-play-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m10 8.5 5.5 3.5-5.5 3.5z" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m8 12 3 3 5-6" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M12 7v5l3 2" />
+      </symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0" />
+      </symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24">
+        <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+        <path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z" />
+      </symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24">
+        <rect x="3" y="4.5" width="18" height="17" rx="2" />
+        <path d="M16 2.5v4M8 2.5v4M3 10h18" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20.5 20.5-4.2-4.2" />
+      </symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z" /></symbol>
+      <symbol id="i-award" viewBox="0 0 24 24">
+        <circle cx="12" cy="9" r="6" />
+        <path d="m8.2 13.6-1.7 7.9L12 18.5l5.5 3-1.7-7.9" />
+      </symbol>
+      <symbol id="i-briefcase" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="14" rx="2" />
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M2 13h20" />
+      </symbol>
+      <symbol id="i-users" viewBox="0 0 24 24">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
+      </symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24">
+        <path d="M3 3v18h18" />
+        <path d="M7 16v-5M12 16V8M17 16v-8" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      </symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24">
+        <circle cx="9" cy="6" r="1" fill="currentColor" />
+        <circle cx="15" cy="6" r="1" fill="currentColor" />
+        <circle cx="9" cy="12" r="1" fill="currentColor" />
+        <circle cx="15" cy="12" r="1" fill="currentColor" />
+        <circle cx="9" cy="18" r="1" fill="currentColor" />
+        <circle cx="15" cy="18" r="1" fill="currentColor" />
+      </symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6" /></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
+      <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" /></symbol>
+      <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" /></symbol>
+      <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="1.2" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+        <circle cx="12" cy="19" r="1.2" fill="currentColor" />
+      </symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+        />
+      </symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6M8 13h8M8 17h5" />
+      </symbol>
+      <symbol id="i-image" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="m21 15-5-5L5 21" />
+      </symbol>
+      <symbol id="i-help" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />
+      </symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24">
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"
+        />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5" /></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m22 7-10 6L2 7" />
+      </symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />
+      </symbol>
+    </svg>
+
+    <div class="scrim"></div>
+    <div class="shell">
+      <aside class="side" aria-label="Trainer navigation">
+        <a class="brand" href="index.html"
+          ><img src="../../assets/img/airise/mark.png" alt="" width="273" height="300" /><span>Ai<b>Rise</b></span></a
+        >
+        <nav class="side__group" aria-label="Trainer studio">
+          <h2>Trainer studio</h2>
+          <ul>
+            <li>
+              <a class="side__link" href="#courses" aria-current="page" data-tab-link="courses"
+                ><svg class="i" aria-hidden="true"><use href="#i-layers" /></svg><span>My courses</span></a
+              >
+            </li>
+            <li>
+              <a class="side__link" href="#create" data-tab-link="create"
+                ><svg class="i" aria-hidden="true"><use href="#i-upload" /></svg><span>Upload a course</span></a
+              >
+            </li>
+            <li>
+              <a class="side__link" href="#guidelines" data-tab-link="guidelines"
+                ><svg class="i" aria-hidden="true"><use href="#i-check-circle" /></svg><span>Guidelines</span></a
+              >
+            </li>
+          </ul>
+        </nav>
+        <nav class="side__group" aria-label="Learn">
+          <h2>Learn</h2>
+          <ul>
+            <li>
+              <a class="side__link" href="dashboard.html"
+                ><svg class="i" aria-hidden="true"><use href="#i-home" /></svg><span>Learner dashboard</span></a
+              >
+            </li>
+            <li>
+              <a class="side__link" href="programme.html"
+                ><svg class="i" aria-hidden="true"><use href="#i-book" /></svg><span>Course catalogue</span></a
+              >
+            </li>
+            <li>
+              <a class="side__link" href="facilitators.html"
+                ><svg class="i" aria-hidden="true"><use href="#i-users" /></svg><span>Run a cohort</span></a
+              >
+            </li>
+          </ul>
+        </nav>
+        <div class="side__promo">
+          <b>Training with Rheti?</b>
+          <p>Rheti trainers publish their programmes, like The Hack, to AiRise learners.</p>
+          <a class="btn btn--gold btn--sm" href="../../services/rheti.html">About Rheti</a>
+        </div>
+        <nav class="side__group side__foot" aria-label="Account">
+          <h2>Settings</h2>
+          <ul>
+            <li>
+              <a class="side__link" href="index.html"
+                ><svg class="i" aria-hidden="true"><use href="#i-globe" /></svg><span>AiRise website</span></a
+              >
+            </li>
+            <li>
+              <a class="side__link" href="index.html" style="color: var(--red)"
+                ><svg class="i" aria-hidden="true"><use href="#i-logout" /></svg><span>Log out</span></a
+              >
+            </li>
+          </ul>
+        </nav>
+      </aside>
+      <main class="main" id="main">
+        <div class="topbar">
+          <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false">
+            <svg class="i" aria-hidden="true"><use href="#i-menu" /></svg>
+          </button>
+          <label class="search"
+            ><span class="sr-only">Search</span><svg class="i" aria-hidden="true"><use href="#i-search" /></svg
+            ><input id="search" type="search" placeholder="Search your courses…"
+          /></label>
+          <a class="btn btn--gold keep" href="#create" data-tab-link="create"
+            ><svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> New course</a
+          >
+        </div>
+        <section class="banner" aria-labelledby="tb-t" style="min-height: 160px">
+          <div class="banner__stars" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"
+              /></svg
+            ><svg viewBox="0 0 24 24">
+              <path
+                d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"
+              /></svg
+            ><svg viewBox="0 0 24 24">
+              <path
+                d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"
+              /></svg
+            ><svg viewBox="0 0 24 24">
+              <path
+                d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"
+              /></svg
+            ><svg viewBox="0 0 24 24">
+              <path
+                d="M12 0c.8 6.6 5.4 11.2 12 12-6.6.8-11.2 5.4-12 12-.8-6.6-5.4-11.2-12-12C6.6 11.2 11.2 6.6 12 0z"
+              />
+            </svg>
+          </div>
+          <small>Trainer studio</small>
+          <h1 id="tb-t">Share what you know with AiRise learners.</h1>
+          <p>
+            Upload a course, map it to the nine employability skills and send it for review. Approved courses appear in
+            learners' dashboards.
+          </p>
+        </section>
+
+        <div class="tabs" role="tablist" aria-label="Trainer studio" style="margin-top: 22px">
+          <button role="tab" type="button" aria-selected="true" data-tab="courses">My courses</button>
+          <button role="tab" type="button" aria-selected="false" data-tab="create">Upload a course</button>
+          <button role="tab" type="button" aria-selected="false" data-tab="guidelines">Guidelines</button>
+        </div>
+
+        <section class="panel sec" id="courses" role="tabpanel" aria-label="My courses">
+          <div class="kpis" data-kpis></div>
+          <div class="sec__head" style="margin-top: 26px">
+            <h2>Courses</h2>
+            <a href="#create" data-tab-link="create">Upload a course</a>
+          </div>
+          <div class="table card">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Course</th>
+                  <th scope="col">Skills</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Learners</th>
+                  <th scope="col">Updated</th>
+                  <th scope="col"><span class="sr-only">Action</span></th>
+                </tr>
+              </thead>
+              <tbody data-course-rows></tbody>
+            </table>
+          </div>
+          <p class="note">
+            Rows marked Sample are examples. Courses you create are saved in this browser until AiRise's server is
+            connected.
+          </p>
+        </section>
+
+        <section class="panel sec" id="create" role="tabpanel" aria-label="Upload a course" hidden>
+          <ol class="stepper" aria-label="Steps">
+            <li aria-current="step"><b>1</b>Course details</li>
+            <li><b>2</b>Curriculum</li>
+            <li><b>3</b>Assessment</li>
+            <li><b>4</b>Review &amp; submit</li>
+          </ol>
+          <form id="course-form" class="form card" novalidate>
+            <div class="wstep">
+              <h2>Course details</h2>
+              <p>Tell learners what the course is and which AiRise skills it builds.</p>
+              <label class="field"
+                ><span>Course title</span
+                ><input
+                  type="text"
+                  name="title"
+                  placeholder="e.g. Writing a CV that gets interviews"
+                  maxlength="90"
+                /><small class="err">Enter a title of at least 5 characters.</small></label
+              >
+              <div class="grid2">
+                <label class="field"
+                  ><span>Track</span
+                  ><select name="track">
+                    <option>Employability skill</option>
+                    <option>Career readiness</option>
+                    <option>Entrepreneurship</option>
+                    <option>Technical skill</option>
+                    <option>Leadership</option>
+                  </select></label
+                >
+                <label class="field"
+                  ><span>Level</span
+                  ><select name="level">
+                    <option>Beginner</option>
+                    <option>Intermediate</option>
+                    <option>Advanced</option>
+                  </select></label
+                >
+              </div>
+              <label class="field"
+                ><span>Short description</span
+                ><textarea
+                  name="summary"
+                  placeholder="Who is this course for, and what will they be able to do by the end?"
+                ></textarea
+                ><small class="err">Write at least 30 characters.</small></label
+              >
+              <label class="field"
+                ><span>Learning outcomes</span
+                ><textarea
+                  name="outcomes"
+                  placeholder="One per line, e.g. Write a one-page CV tailored to a job advert"
+                ></textarea
+                ><small
+                  >Use the AiRise pattern: what the learner starts by asking, and what they leave able to do.</small
+                ></label
+              >
+              <fieldset class="field">
+                <legend>Maps to AiRise skills</legend>
+                <small
+                  >Choose the employability skills this course builds. Learners see it next to those courses.</small
+                >
+                <div class="chips" data-skills style="margin-top: 6px"></div>
+                <small class="err">Choose at least one skill.</small>
+              </fieldset>
+              <div class="grid2">
+                <label class="field"
+                  ><span>Estimated study time (hours)</span
+                  ><input type="number" name="hours" min="1" max="200" value="4" /><small class="err"
+                    >Enter the number of hours.</small
+                  ></label
+                >
+                <div class="field">
+                  <span>Cover image</span
+                  ><label class="drop" data-cover data-preview
+                    ><svg class="i" aria-hidden="true"><use href="#i-image" /></svg
+                    ><span><b>Upload a cover</b> or drag it here</span><small>JPG or PNG, 16:9, at least 1280×720</small
+                    ><input type="file" accept="image/*" aria-label="Upload cover image"
+                  /></label>
+                  <div data-files data-cover-files></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="wstep" hidden>
+              <h2>Curriculum</h2>
+              <p>
+                Group lessons into modules. Upload a video, PDF, slides or audio for each lesson, and drag lessons to
+                reorder them.
+              </p>
+              <div data-modules></div>
+              <button class="btn btn--ghost" type="button" data-add-module>
+                <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> Add module
+              </button>
+            </div>
+
+            <div class="wstep" hidden>
+              <h2>Assessment</h2>
+              <p>
+                AiRise quizzes have two parts: multiple-choice questions on the ideas (Section A) and a realistic
+                scenario (Section B).
+              </p>
+              <div class="sec__head">
+                <h3 style="font-size: 16px">Section A · multiple choice (<span data-qcount>0</span>)</h3>
+                <button class="btn btn--ghost btn--sm" type="button" data-add-q>
+                  <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> Add question
+                </button>
+              </div>
+              <div data-questions></div>
+              <label class="field"
+                ><span>Section B · scenario task</span
+                ><textarea
+                  name="scenario"
+                  placeholder="Describe a realistic workplace situation and what the learner must do, e.g. 'Using SHIFT, describe what you would do in the first week…'"
+                ></textarea
+                ><small
+                  >Marked with the AiRise rubric: use of the model, application, judgement and communication.</small
+                ></label
+              >
+              <label class="field" style="max-width: 260px"
+                ><span>Pass mark (%)</span><input type="number" name="pass" min="50" max="100" value="70" /><small
+                  >AiRise default: 70% (14 out of 20).</small
+                ></label
+              >
+            </div>
+
+            <div class="wstep" hidden>
+              <h2>Review &amp; submit</h2>
+              <p>Check your course, then send it to the AiRise team. You can keep editing until it's approved.</p>
+              <div class="summary" data-summary></div>
+              <fieldset class="field checks">
+                <legend class="sr-only">Declarations</legend>
+                <label
+                  ><input type="checkbox" id="agree-rights" /><span
+                    >I own this content or have the right to publish it.</span
+                  ></label
+                >
+                <label
+                  ><input type="checkbox" /><span
+                    >It contains no confidential employer, client or personal information.</span
+                  ></label
+                >
+                <label
+                  ><input type="checkbox" /><span
+                    >Quiz answers are my own work and are not published elsewhere.</span
+                  ></label
+                >
+                <small class="err">Tick all three to submit.</small>
+              </fieldset>
+            </div>
+
+            <div class="form-foot">
+              <button class="btn btn--ghost" type="button" data-back>
+                <svg class="i" aria-hidden="true"><use href="#i-chev-left" /></svg> Back
+              </button>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <button class="btn btn--ghost" type="button" data-save-draft>Save draft</button>
+                <button class="btn" type="button" data-next>
+                  Continue <svg class="i" aria-hidden="true"><use href="#i-chev-right" /></svg>
+                </button>
+                <button class="btn btn--gold" type="submit" data-submit hidden>
+                  <svg class="i" aria-hidden="true"><use href="#i-send" /></svg> Submit for review
+                </button>
+              </div>
+            </div>
+          </form>
+          <p class="note">
+            Files are not uploaded yet: only their names and sizes are kept, until AiRise's server is connected.
+          </p>
+        </section>
+
+        <section class="panel sec" id="guidelines" role="tabpanel" aria-label="Guidelines" hidden>
+          <div class="form card">
+            <h2>What makes a great AiRise course</h2>
+            <p>Every AiRise course follows the same rhythm, so learners always know what to expect.</p>
+            <ul class="ticks" style="display: grid; gap: 10px">
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span
+                  ><b>One memorable model.</b> Give learners a short framework they can use in the moment, like SHIFT or
+                  SOLVE.</span
+                >
+              </li>
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span
+                  ><b>Assess, learn, apply, plan.</b> Start with a self-assessment, teach through real situations, apply
+                  it at work and end with a 90-day plan.</span
+                >
+              </li>
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span><b>Keep teaching short and practice long.</b> Most skills are learned by doing.</span>
+              </li>
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span
+                  ><b>Use real and illustrative cases.</b> Check real cases against original sources and mark composites
+                  as illustrative.</span
+                >
+              </li>
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span><b>Accessible media.</b> Videos under 15 minutes, with captions; documents as PDF.</span>
+              </li>
+              <li>
+                <svg class="i" aria-hidden="true"><use href="#i-check" /></svg
+                ><span
+                  ><b>Fair assessment.</b> Section A tests knowledge; Section B tests application. Never publish answer
+                  keys.</span
+                >
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      <aside class="aside" aria-label="Review process">
+        <div class="aside__head"><h2>How review works</h2></div>
+        <ol class="flow">
+          <li>
+            <b>1 · Submit</b>
+            <p>Send your course from the review step.</p>
+          </li>
+          <li>
+            <b>2 · Quality review</b>
+            <p>AiRise checks content, media and quiz against the guidelines.</p>
+          </li>
+          <li>
+            <b>3 · Changes or approval</b>
+            <p>We reply within 5 working days with feedback or approval.</p>
+          </li>
+          <li>
+            <b>4 · Published</b>
+            <p>Learners see it in their dashboard and can earn a certificate.</p>
+          </li>
+        </ol>
+        <div class="guide">
+          <h3>Accepted files</h3>
+          <ul>
+            <li>Video: MP4 or MOV, up to 2 GB per lesson</li>
+            <li>Documents: PDF, Word or PowerPoint</li>
+            <li>Audio: MP3 or M4A</li>
+            <li>Cover: JPG or PNG, 16:9</li>
+          </ul>
+        </div>
+        <div class="guide">
+          <h3>Need help?</h3>
+          <ul>
+            <li>Read the <a href="facilitators.html" style="text-decoration: underline">facilitator guide</a></li>
+            <li>Email info@rehohub.com</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+    <div class="toast" role="status" aria-live="polite">
+      <svg class="i" aria-hidden="true"><use href="#i-check-circle" /></svg><span></span>
+    </div>
+    <script src="../../assets/js/airise-app.js"></script>
+    <script src="../../assets/js/airise-trainer.js"></script>
+  </body>
+</html>
