@@ -6456,3 +6456,449 @@ ul {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* =========================================================
+   Rheti × AiRise: The Hack course, hero course card and
+   platform roles. Mirrors the AiRise app components.
+   ========================================================= */
+.rh-i {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.rh-hcard {
+  position: absolute;
+  right: -12px;
+  bottom: -24px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 270px;
+  padding: 12px;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ar-navy);
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.3s var(--ease);
+}
+.rh-hcard:hover {
+  transform: translateY(-4px);
+}
+.rh-hcard__thumb {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0d2357, #2f3640);
+  flex: none;
+}
+.rh-hcard__thumb b {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.rh-hcard__thumb b:first-child {
+  background: var(--ar-gold);
+  color: var(--ar-navy);
+}
+.rh-hcard__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.rh-hcard small {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a7012;
+}
+.rh-hcard strong {
+  font-size: 17px;
+}
+.rh-hcard__meta {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.rh-bar {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: #e8ebf3;
+  overflow: hidden;
+}
+.rh-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ar-navy), var(--ar-gold));
+}
+@media (max-width: 960px) {
+  .rh-hcard {
+    right: 8px;
+    bottom: -20px;
+  }
+}
+@media (max-width: 600px) {
+  .theme-rh .rh-hcard {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    margin-top: -40px;
+  }
+}
+
+/* Course section */
+.rh-course__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+.rh-course__card {
+  display: grid;
+  gap: 14px;
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  border: 1px solid var(--ar-line);
+  box-shadow: 0 30px 60px -30px rgba(13, 35, 87, 0.35);
+}
+.rh-course__card .btn {
+  justify-self: start;
+}
+.rh-stage {
+  aspect-ratio: 16 / 8;
+  border-radius: 16px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 12px;
+  color: #fff;
+  background: radial-gradient(circle at 80% 20%, rgba(212, 161, 42, 0.35), transparent 45%),
+    linear-gradient(135deg, #081740, #16306f);
+}
+.rh-stage__letters {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.rh-stage__letters b {
+  width: clamp(40px, 5vw, 58px);
+  height: clamp(40px, 5vw, 58px);
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: clamp(20px, 2.4vw, 28px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.rh-stage__letters b:first-child {
+  background: var(--ar-gold);
+  border-color: var(--ar-gold);
+  color: var(--ar-navy);
+}
+.rh-stage p {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+.rh-pill {
+  justify-self: start;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fdf1d3;
+  color: #8a6510;
+}
+.rh-course__card h3 {
+  font-size: clamp(20px, 2.2vw, 24px);
+  color: var(--ar-navy);
+}
+.rh-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rh-stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #f4f6fb;
+  font-size: 14px;
+  color: var(--ar-navy);
+}
+.rh-stats .rh-i {
+  width: 18px;
+  height: 18px;
+  color: #9a7012;
+}
+.rh-by,
+.rh-mentor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rh-by b,
+.rh-mentor b {
+  display: block;
+  color: var(--ar-navy);
+}
+.rh-by small,
+.rh-mentor small {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.rh-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--ar-gold);
+  color: var(--ar-navy);
+}
+.rh-ask {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #081740;
+  color: #fff;
+}
+.rh-ask > span {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 0.8;
+  color: var(--ar-gold);
+}
+.rh-ask p {
+  font-weight: 600;
+}
+.rh-ask small {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+.rh-ask--out {
+  background: var(--ar-cream);
+  color: var(--ar-navy);
+  border: 1px solid rgba(212, 161, 42, 0.4);
+}
+.rh-ask--out small {
+  color: #8a6510;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rh-list-title {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+.rh-lessons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.rh-lesson {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #e8eefc;
+  color: var(--ar-navy);
+  font-weight: 500;
+  transition:
+    transform 0.2s var(--ease),
+    box-shadow 0.2s;
+}
+.rh-lesson:hover {
+  transform: translateX(4px);
+  box-shadow: 0 10px 20px -14px rgba(13, 35, 87, 0.6);
+}
+.rh-lesson--practice {
+  background: #fdf1d3;
+}
+.rh-lesson span {
+  flex: 1;
+  min-width: 0;
+}
+.rh-lesson em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.rh-note {
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.rh-note a {
+  color: var(--ar-navy);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 860px) {
+  .rh-course__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Rheti on AiRise */
+.rh-roles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+.rh-role {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--ar-line);
+  box-shadow: 0 24px 48px -30px rgba(13, 35, 87, 0.4);
+}
+.rh-role img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top left;
+  border-bottom: 1px solid var(--ar-line);
+}
+.rh-role > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 24px 26px;
+  flex: 1;
+}
+.rh-role__ico {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--ar-navy);
+  color: var(--ar-gold-2);
+}
+.rh-role h3 {
+  font-size: 21px;
+  color: var(--ar-navy);
+}
+.rh-role p {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+.rh-role > div > a {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  font-weight: 700;
+  color: var(--ar-navy);
+  border-bottom: 2px solid var(--ar-gold);
+}
+.rh-role > div > a .rh-i {
+  width: 16px;
+  height: 16px;
+}
+.rh-role--mentor {
+  background: linear-gradient(160deg, var(--ar-navy), #16306f);
+  border-color: transparent;
+}
+.rh-role--mentor h3 {
+  color: #fff;
+}
+.rh-role--mentor p {
+  color: rgba(255, 255, 255, 0.8);
+}
+.rh-role--mentor .rh-role__ico {
+  background: var(--ar-gold);
+  color: var(--ar-navy);
+}
+.rh-role--mentor .rh-mentor {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.rh-role--mentor .rh-mentor > div {
+  flex: 1;
+  min-width: 0;
+}
+.rh-role--mentor .rh-mentor b {
+  color: #fff;
+}
+.rh-role--mentor .rh-mentor small {
+  color: rgba(255, 255, 255, 0.7);
+}
+.rh-follow {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ar-gold);
+  color: var(--ar-navy);
+}
+.rh-role--mentor .rh-note {
+  margin-top: auto;
+  padding-top: 18px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.rh-role--mentor .rh-note a {
+  color: var(--ar-gold-2);
+}
+.rh-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--ar-navy);
+  font-weight: 500;
+}
+@media (max-width: 1024px) {
+  .rh-roles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rh-role--mentor {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 640px) {
+  .rh-roles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
