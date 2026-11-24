@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Kaushan+Script&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Roboto:wght@400;500;700&family=Kaushan+Script&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/styles.css" />
@@ -29,7 +29,7 @@
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="header" id="top">
+    <header class="header header--solid" id="top">
       <div class="container header__inner">
         <a class="logo" href="../index.html" aria-label="Rehohub home"
           ><svg class="logo__icon" viewBox="0 0 80 80" aria-hidden="true">
@@ -67,127 +67,1128 @@
         </nav>
       </div>
     </header>
-    <main id="main">
-      <section class="sub-hero">
-        <img class="sub-hero__img" src="../assets/img/rehotrans.jpg" alt="" width="422" height="281" />
-        <svg class="hero__ghost hero__ghost--b" viewBox="100 53 52 56" fill="currentColor" aria-hidden="true">
-          <path
-            fill-rule="evenodd"
-            d="M118.56 107.61c5.7-12.04 13.1-.34 18.93 0h13.29l-12.98-20.54c5.73-2.44 9.47-8.32 9.47-15.12 0-4.96-1.76-9.09-5.35-12.45-3.51-3.43-7.79-5.11-12.75-5.11h-22.3c24.96 12.14-.55 33.86 0 53.22z"
-          />
-          <circle cx="106.09" cy="69.29" r="4.87" />
-        </svg>
-        <div class="container">
-          <nav class="crumbs" aria-label="Breadcrumb">
-            <a href="../index.html">Rehohub</a><span>/</span><a href="../index.html#services">Services</a><span>/</span
-            ><span aria-current="page">RehoTrans</span>
-          </nav>
-          <span class="hero__badge"><b>04</b> Logistics</span>
-          <h1 style="margin-top: 22px">RehoTrans<span style="color: #9cc8ff">.</span></h1>
-          <p class="tagline">Moving goods and people safely across Africa.</p>
-          <div class="hero__ctas">
-            <a class="btn btn--white" href="#contact"
-              >Work with RehoTrans
+    <main id="main" class="product-page theme-am am2 rt">
+      <section class="rt-hero">
+        <div class="container rt-hero__inner">
+          <div>
+            <nav class="crumbs am2-crumbs" aria-label="Breadcrumb">
+              <a href="../index.html">Rehohub</a><span>/</span><a href="../index.html#services">Services</a
+              ><span>/</span><span aria-current="page">RehoTrans</span>
+            </nav>
+            <span class="rt-badge reveal"><b>04</b> Logistics · Powered by AiMove</span>
+            <h1 class="reveal" style="--d: 0.08s">RehoTrans<span>.</span></h1>
+            <p class="rt-tag reveal" style="--d: 0.12s">Moving goods and people safely across Africa.</p>
+            <p class="rt-lead reveal" style="--d: 0.16s">
+              RehoTrans runs Rehohub's supply chain and provides road mobility across the African region, with
+              road-worthy vehicles that reduce risk to life and property. Customers book, pay and track every RehoTrans
+              delivery in the AiMove app.
+            </p>
+            <div class="hero__ctas reveal" style="--d: 0.24s">
+              <a class="btn am2-cta" href="../products/aimove.html#tour"
+                >Book a delivery on AiMove
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" /></svg
+              ></a>
+              <a class="btn btn--outline am2-cta2" href="../products/aimove.html#track">Track a package</a>
+            </div>
+          </div>
+          <div class="rt-hero__media reveal" style="--d: 0.2s">
+            <div class="rt-photo">
+              <img
+                src="../assets/img/rehotrans.jpg"
+                alt="A RehoTrans delivery vehicle on the road"
+                width="422"
+                height="281"
+              />
+            </div>
+            <div class="rt-hero__phone">
+              <div class="am2-phone am2-phone--static" aria-hidden="true" inert>
+                <div class="am2-screen">
+                  <div class="am2-status" aria-hidden="true">
+                    <b>9:41</b><span><i></i><i></i><i></i></span>
+                  </div>
+                  <svg class="am2-map" viewBox="0 0 300 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <rect width="300" height="170" fill="#eceef2" />
+                    <g stroke="#fff" stroke-width="5" fill="none">
+                      <path d="M-10 40 L310 70" />
+                      <path d="M-10 120 L310 100" />
+                      <path d="M60 -10 L90 180" />
+                      <path d="M180 -10 L160 180" />
+                      <path d="M240 -10 L270 180" />
+                    </g>
+                    <g stroke="#fff" stroke-width="2" fill="none" opacity=".9">
+                      <path d="M-10 85 L310 85" />
+                      <path d="M120 -10 L130 180" />
+                      <path d="M20 -10 L35 180" />
+                      <path d="M-10 150 L310 140" />
+                    </g>
+                    <path
+                      d="M86 52 C110 70 120 90 140 96 S175 118 168 140"
+                      stroke="#0256FF"
+                      stroke-width="3"
+                      fill="none"
+                      stroke-linecap="round"
+                      class="am2-route"
+                    />
+                    <g fill="#FF6B1A">
+                      <path d="M86 52c-5 0-8 3-8 7 0 6 8 12 8 12s8-6 8-12c0-4-3-7-8-7z" transform="translate(0 -16)" />
+                      <path
+                        d="M168 140c-5 0-8 3-8 7 0 6 8 12 8 12s8-6 8-12c0-4-3-7-8-7z"
+                        transform="translate(0 -18)"
+                      />
+                    </g>
+                    <circle class="am2-dot" r="6" fill="#0256FF" stroke="#fff" stroke-width="2" />
+                  </svg>
+                  <div class="am2-body">
+                    <p class="am2-sub">Tracking number</p>
+                    <p class="am2-trk">
+                      <svg
+                        class="am2-i"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
+                        <path d="m3 8 9 5 9-5M12 13v8" /></svg
+                      >R-7458-4567-4434-5854
+                    </p>
+                    <ol class="am2-tl">
+                      <li class="done"><b>Courier requested</b><small>08:00am</small></li>
+                      <li class="done"><b>Package ready for delivery</b><small>08:30am</small></li>
+                      <li class="now"><b>Package in transit</b><small>10:30am · 12 mins away</small></li>
+                      <li><b>Package delivered</b><small>Confirm with your 4-digit PIN</small></li>
+                    </ol>
+                    <div class="am2-row2">
+                      <button type="button" class="am2-btn" data-x="info">Package info</button
+                      ><button type="button" class="am2-btn am2-btn--orange" data-x="rider">Contact rider</button>
+                    </div>
+                  </div>
+                  <nav class="am2-tabs" aria-label="App tabs">
+                    <button type="button" data-x="home">
+                      <svg
+                        class="am2-i"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg
+                      ><span>Home</span></button
+                    ><button type="button" data-x="wallet">
+                      <svg
+                        class="am2-i"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M20 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15v13H5a2 2 0 0 1-2-2V5" />
+                        <circle cx="16" cy="13.5" r="1.5" /></svg
+                      ><span>Wallet</span></button
+                    ><button type="button" data-x="track" aria-current="true">
+                      <svg
+                        class="am2-i"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M5 17h-1a2 2 0 0 1-2-2v-4l2.5-5h11l2.5 5h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1" />
+                        <circle cx="7.5" cy="17" r="2" />
+                        <circle cx="16.5" cy="17" r="2" />
+                        <path d="M9.5 17h5" /></svg
+                      ><span>Track</span></button
+                    ><button type="button" data-x="profile">
+                      <svg
+                        class="am2-i"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 21a8 8 0 0 1 16 0" /></svg
+                      ><span>Profile</span>
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+            <div class="am2-float rt-float">
               <svg
+                class="am2-i"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              Verified riders, PIN-confirmed delivery
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rt-stats-wrap">
+        <div class="container">
+          <ul class="rt-stats reveal">
+            <li><b>₦800</b><span>Base booking fee</span></li>
+            <li><b>₦120–₦300</b><span>Per km, by package weight</span></li>
+            <li><b>+₦300</b><span>Instant express pickup</span></li>
+            <li><b>4 stages</b><span>Live tracking to your door</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="overview">
+        <div class="container">
+          <div class="section__head section__head--split">
+            <div class="reveal">
+              <span class="eyebrow">What RehoTrans does</span>
+              <h2 class="title bar" style="margin-top: 16px">Logistics for the whole Rehohub family.</h2>
+            </div>
+            <p class="lead reveal" style="--d: 0.1s">
+              From farm gate to factory floor to your front door, RehoTrans keeps goods and people moving.
+            </p>
+          </div>
+          <div class="rt-pillars">
+            <article class="reveal">
+              <svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M1 4h14v12H1zM15 9h4l4 4v3h-8" />
+                <circle cx="6" cy="18" r="2" />
+                <circle cx="18" cy="18" r="2" />
+              </svg>
+              <h3>Supply-chain logistics</h3>
+              <p>Reliable haulage that powers the entire Rehohub ecosystem.</p>
+            </article>
+            <article class="reveal" style="--d: 0.07s">
+              <svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="6" cy="19" r="2" />
+                <circle cx="18" cy="5" r="2" />
+                <path d="M8 19h6a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h6" />
+              </svg>
+              <h3>Road mobility</h3>
+              <p>Safe, road-worthy fleets moving clients across the region.</p>
+            </article>
+            <article class="reveal" style="--d: 0.14s">
+              <svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="5" y="3" width="14" height="14" rx="3" />
+                <path d="M5 11h14M9 21l-2-4M15 21l2-4M9 14h.01M15 14h.01" />
+              </svg>
+              <h3>Rail ambitions</h3>
+              <p>A long-term commitment to improving the Nigerian railway system.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--tint" id="services">
+        <div class="container">
+          <div class="section__head section__head--split">
+            <div class="reveal">
+              <span class="eyebrow">Powered by AiMove</span>
+              <h2 class="title bar" style="margin-top: 16px">Every RehoTrans service, in one app.</h2>
+            </div>
+            <p class="lead reveal" style="--d: 0.1s">
+              AiMove is the app for RehoTrans customers, businesses and riders. Tap a service to see it in the AiMove
+              app tour.
+            </p>
+          </div>
+          <div class="am2-svcs">
+            <a class="am2-svc reveal" style="--d: 0s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
+                <path d="m3 8 9 5 9-5M12 13v8" /></svg
+              ><b>Send a package</b><span>Pickup and drop-off by a verified RehoTrans rider.</span></a
+            ><a class="am2-svc on reveal" style="--d: 0.07s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 17h-1a2 2 0 0 1-2-2v-4l2.5-5h11l2.5 5h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1" />
+                <circle cx="7.5" cy="17" r="2" />
+                <circle cx="16.5" cy="17" r="2" />
+                <path d="M9.5 17h5" /></svg
+              ><b>Book a rider</b><span>Find available riders within your area.</span></a
+            ><a class="am2-svc reveal" style="--d: 0.14s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4.5" width="18" height="17" rx="2" />
+                <path d="M16 2.5v4M8 2.5v4M3 10h18" /></svg
+              ><b>Schedule a pickup</b><span>Choose a date and time slot in advance.</span></a
+            ><a class="am2-svc reveal" style="--d: 0s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" />
+                <circle cx="12" cy="10" r="2.5" /></svg
+              ><b>Track live</b><span>Follow your package on the map, stage by stage.</span></a
+            ><a class="am2-svc reveal" style="--d: 0.07s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15v13H5a2 2 0 0 1-2-2V5" />
+                <circle cx="16" cy="13.5" r="1.5" /></svg
+              ><b>Pay your way</b><span>Wallet, card or bank transfer, with the price upfront.</span></a
+            ><a class="am2-svc reveal" style="--d: 0.14s" href="../products/aimove.html#tour"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 14v-2a9 9 0 0 1 18 0v2" />
+                <path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z" /></svg
+              ><b>Customer care</b><span>Lines open 8–9pm on weekdays and 9–5 at weekends.</span></a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="pricing">
+        <div class="container am2-split rt-price-wrap">
+          <div class="reveal">
+            <span class="eyebrow">Pricing</span>
+            <h2 class="title bar" style="margin-top: 16px">A guaranteed price before you book.</h2>
+            <p class="lead" style="margin-top: 22px">
+              Every fare is the base booking fee, plus distance at a rate set by weight, plus any peak-hour or express
+              charge. You see the total in AiMove before you pay.
+            </p>
+            <div class="hero__ctas">
+              <a class="btn am2-cta" href="../products/aimove.html#fare"
+                >Estimate your fare
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" /></svg
+              ></a>
+            </div>
+          </div>
+          <div class="rt-price reveal" style="--d: 0.1s">
+            <table>
+              <caption class="sr-only">
+                Rate per kilometre by package weight
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Package weight</th>
+                  <th scope="col">Class</th>
+                  <th scope="col">Rate per km</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Up to 5 kg</td>
+                  <td>Light parcel</td>
+                  <td>₦120</td>
+                </tr>
+                <tr>
+                  <td>Up to 20 kg</td>
+                  <td>Medium cargo</td>
+                  <td>₦160</td>
+                </tr>
+                <tr>
+                  <td>Up to 50 kg</td>
+                  <td>Heavy freight</td>
+                  <td>₦220</td>
+                </tr>
+                <tr>
+                  <td>Over 50 kg</td>
+                  <td>Extra heavy</td>
+                  <td>₦300</td>
+                </tr>
+              </tbody>
+            </table>
+            <ul class="rt-extras">
+              <li><span>Base booking fee</span><b>₦800</b></li>
+              <li><span>Peak hours (7–10am, 5–8pm)</span><b>+₦350</b></li>
+              <li><span>Instant express</span><b>+₦300</b></li>
+            </ul>
+            <p class="rt-eg">Example: 14.5 km, 5 kg, same-day, off-peak = ₦800 + 14.5 × ₦120 = <b>₦2,540</b></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="am2-types-wrap">
+        <div class="container am2-types">
+          <div class="reveal">
+            <svg
+              class="am2-i"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="5.5" cy="17.5" r="3.5" />
+              <circle cx="18.5" cy="17.5" r="3.5" />
+              <path d="M15 6h3l2 6M5.5 17.5 9 10h6l3.5 7.5M9 10 7 6H4" />
+            </svg>
+            <div>
+              <b>Instant express <em>+₦300</em></b
+              ><span>Picked up right away for urgent deliveries.</span>
+            </div>
+          </div>
+          <div class="reveal" style="--d: 0.07s">
+            <svg
+              class="am2-i"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9.5" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            <div>
+              <b>Same-day <em>Standard</em></b
+              ><span>Delivered today at the standard rate.</span>
+            </div>
+          </div>
+          <div class="reveal" style="--d: 0.14s">
+            <svg
+              class="am2-i"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4.5" width="18" height="17" rx="2" />
+              <path d="M16 2.5v4M8 2.5v4M3 10h18" />
+            </svg>
+            <div>
+              <b>Scheduled <em>Plan ahead</em></b
+              ><span>Choose a pickup date and time slot.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--tint" id="journey">
+        <div class="container am2-track">
+          <div class="reveal">
+            <span class="eyebrow">How a delivery moves</span>
+            <h2 class="title bar" style="margin-top: 16px">From request to doorstep.</h2>
+            <p class="lead" style="margin-top: 22px">
+              A nearby RehoTrans rider accepts your request, collects the package and follows the route to the
+              recipient. You can follow every stage on the map in AiMove, and the recipient confirms delivery with a
+              4-digit PIN.
+            </p>
+            <div class="hero__ctas">
+              <a class="btn btn--outline am2-cta2" href="../products/aimove.html#track"
+                >Track a package
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" /></svg
+              ></a>
+            </div>
+          </div>
+          <div class="am2-trackcard reveal" style="--d: 0.1s">
+            <div class="am2-trackcard__head">
+              <small>Sample tracking number</small><b>R-7458-4567-4434-5854</b><span class="am2-badge">In transit</span>
+            </div>
+            <ol class="am2-tl am2-tl--lg">
+              <li class="done"><b>Courier requested</b><small>08:00am</small></li>
+              <li class="done"><b>Package ready for delivery</b><small>08:30am</small></li>
+              <li class="now"><b>Package in transit</b><small>10:30am · rider 12 mins away</small></li>
+              <li><b>Package delivered</b><small>Confirmed with the recipient's 4-digit PIN</small></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section am2-riders" id="fleet">
+        <div class="container am2-split">
+          <div class="reveal">
+            <span class="eyebrow eyebrow--light">The RehoTrans fleet</span>
+            <h2 class="title title--light bar bar--light" style="margin-top: 16px">Ride with RehoTrans.</h2>
+            <p class="lead" style="margin-top: 22px; color: rgba(255, 255, 255, 0.85)">
+              RehoTrans riders work through the AiMove rider app: go online, accept jobs from the load board, navigate
+              to the pickup and get paid to your bank.
+            </p>
+            <ul class="am2-ticks">
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg
+                >Sign up with your vehicle type, driver's licence and plate number
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg
+                >See the payout before you accept, with high-payout and express filters
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg
+                >Built-in navigation and chat with the customer
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg
+                >Proof of delivery with the customer's PIN protects you in disputes
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg
+                >Track earnings, trips and rating, and withdraw to your bank
+              </li>
+            </ul>
+            <div class="hero__ctas">
+              <a class="btn am2-btn-orange" href="../products/aimove.html#riders"
+                >Enroll as a rider
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" /></svg
+              ></a>
+            </div>
+          </div>
+          <div class="am2-stage reveal" style="--d: 0.1s">
+            <div class="am2-phone am2-phone--static" aria-hidden="true" inert>
+              <div class="am2-screen">
+                <div class="am2-status" aria-hidden="true">
+                  <b>9:41</b><span><i></i><i></i><i></i></span>
+                </div>
+                <label class="am2-search"
+                  ><svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20.5 20.5-4.2-4.2" /></svg
+                  ><span>Search services</span></label
+                >
+                <div class="am2-hello am2-earn">
+                  <div><b>Alex Rider</b><small class="gold">4.9 rating</small></div>
+                  <span class="am2-online">ONLINE</span>
+                  <dl>
+                    <div>
+                      <dt>Earnings today</dt>
+                      <dd>₦24,800</dd>
+                    </div>
+                    <div>
+                      <dt>Trips today</dt>
+                      <dd>14</dd>
+                    </div>
+                  </dl>
+                </div>
+                <p class="am2-h">Ongoing delivery</p>
+                <div class="am2-job">
+                  <span>ACTIVE JOB</span><b>₦2,500</b>
+                  <ol>
+                    <li class="done">Picked up</li>
+                    <li>Deliver · confirm PIN</li>
+                  </ol>
+                </div>
+                <p class="am2-h">Load board</p>
+                <div class="am2-load">
+                  <svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
+                    <path d="m3 8 9 5 9-5M12 13v8" />
+                  </svg>
+                  <div><b>Food delivery</b><small>Lekki Phase 1 · 4.3 km</small></div>
+                  <em>₦2,500</em
+                  ><button type="button" class="am2-btn am2-btn--orange" data-x>Accept &amp; navigate</button>
+                </div>
+                <nav class="am2-tabs" aria-label="App tabs">
+                  <button type="button" data-x="home" aria-current="true">
+                    <svg
+                      class="am2-i"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg
+                    ><span>Home</span></button
+                  ><button type="button" data-x="wallet">
+                    <svg
+                      class="am2-i"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15v13H5a2 2 0 0 1-2-2V5" />
+                      <circle cx="16" cy="13.5" r="1.5" /></svg
+                    ><span>Wallet</span></button
+                  ><button type="button" data-x="track">
+                    <svg
+                      class="am2-i"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 17h-1a2 2 0 0 1-2-2v-4l2.5-5h11l2.5 5h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1" />
+                      <circle cx="7.5" cy="17" r="2" />
+                      <circle cx="16.5" cy="17" r="2" />
+                      <path d="M9.5 17h5" /></svg
+                    ><span>Track</span></button
+                  ><button type="button" data-x="profile">
+                    <svg
+                      class="am2-i"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 21a8 8 0 0 1 16 0" /></svg
+                    ><span>Profile</span>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="business">
+        <div class="container">
+          <div class="section__head section__head--split">
+            <div class="reveal">
+              <span class="eyebrow">Supply chain</span>
+              <h2 class="title bar" style="margin-top: 16px">Who RehoTrans moves for.</h2>
+            </div>
+            <p class="lead reveal" style="--d: 0.1s">
+              RehoTrans serves Rehohub's own supply chain and businesses across the region.
+            </p>
+          </div>
+          <div class="rt-eco">
+            <a class="rt-eco__item reveal" style="--d: 0s" href="rehofarm.html"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 22V11" />
+                <path d="M12 11C12 7 9 4 4 4c0 4 3 7 8 7zM12 13c0-4 3-7 8-7 0 4-3 7-8 7z" /></svg
+              ><b>RehoFarm</b><span>Cocoa, rubber and palm produce from farm to buyer.</span></a
+            ><a class="rt-eco__item reveal" style="--d: 0.06s" href="rehofac.html"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M2 20V9l6 4V9l6 4V5h4l2 15z" />
+                <path d="M2 20h20" /></svg
+              ><b>RehoFac</b><span>Raw materials in, finished products out.</span></a
+            ><a class="rt-eco__item reveal" style="--d: 0.12s" href="../products/greenfed.html"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z" />
+                <path d="M2 21c0-3 1.9-5.4 5.1-6" /></svg
+              ><b>GreenFed</b><span>Weekly farm-fresh grocery deliveries.</span></a
+            ><a class="rt-eco__item reveal" style="--d: 0.18s" href="../products/aipay.html"
+              ><svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="9" cy="20" r="1.5" />
+                <circle cx="18" cy="20" r="1.5" />
+                <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6.2" /></svg
+              ><b>AiPay</b><span>Orders from AiPay merchants to buyers.</span></a
+            >
+          </div>
+          <div class="rt-biz reveal">
+            <div>
+              <h3>For your business</h3>
+              <ul class="am2-ticks am2-ticks--blue">
+                <li>
+                  <svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg
+                  >Business account with your CAC/RC number
+                </li>
+                <li>
+                  <svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg
+                  >Scheduled pickups and a default pickup address
+                </li>
+                <li>
+                  <svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg
+                  >One wallet, with PDF statements and reports
+                </li>
+                <li>
+                  <svg
+                    class="am2-i"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg
+                  >Delivery API and status webhooks for your systems
+                </li>
+              </ul>
+            </div>
+            <a class="btn am2-cta" href="../products/aimove.html#business"
+              >Set up business deliveries
+              <svg
+                class="am2-i"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 aria-hidden="true"
               >
                 <path d="M5 12h14M13 6l6 6-6 6" /></svg
             ></a>
-            <a class="btn btn--ghost" href="#overview">Learn more</a>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="overview">
-        <div class="container sub-intro">
-          <div class="reveal">
-            <span class="eyebrow">Logistics · A Rehohub company</span>
-            <h2 class="title bar" style="margin-top: 16px">About RehoTrans</h2>
-            <p class="lead">
-              A logistics company that serves the organization&#x27;s supply chain system and provides road mobility to
-              clients across the African region, utilizing road-worthy means of transportation and reducing risk to life
-              and property. Inclusive in the plan is the amendment of the Nigerian railway system.
-            </p>
-          </div>
-          <div class="sub-intro__img reveal" style="--d: 0.1s">
-            <img
-              src="../assets/img/rehotrans.jpg"
-              alt="RehoTrans — Logistics"
-              loading="lazy"
-              width="422"
-              height="281"
-            />
           </div>
         </div>
       </section>
 
       <section class="section section--tint">
         <div class="container">
-          <div class="section__head">
-            <span class="eyebrow reveal">What we do</span>
-            <h2 class="title bar reveal" style="--d: 0.08s">How RehoTrans delivers.</h2>
+          <div class="section__head" style="text-align: center; justify-items: center">
+            <span class="eyebrow reveal">Safety and trust</span>
+            <h2 class="title bar bar--center reveal" style="--d: 0.08s">Safe hands, every trip.</h2>
           </div>
-          <div class="offer">
-            <div class="why__item reveal" style="--d: 0s">
-              <span>01</span>
-              <div class="why__ico">
-                <svg
+          <div class="am2-trust">
+            <div class="am2-review-card reveal">
+              <span class="am2-stars"
+                ><svg
+                  class="am2-i"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+              ></span>
+              <p>“Right on time.”</p>
+              <b>Mrs Bimbo</b><small>AiMove customer</small>
+            </div>
+            <div class="am2-review-card reveal" style="--d: 0.07s">
+              <span class="am2-stars"
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+                ><svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"
+                    fill="currentColor"
+                  /></svg
+              ></span>
+              <p>“Calls with update on location.”</p>
+              <b>Gentle Jack</b><small>AiMove customer</small>
+            </div>
+            <ul class="am2-trust__list reveal" style="--d: 0.14s">
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                <div><b>Road-worthy vehicles</b><span>Reducing risk to life and property on every trip.</span></div>
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="4" y="11" width="16" height="10" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                <div><b>Verified riders</b><span>Licence, vehicle and plate number on every profile.</span></div>
+              </li>
+              <li>
+                <svg
+                  class="am2-i"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   aria-hidden="true"
                 >
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
-              </div>
-              <h3>Supply-chain logistics</h3>
-              <p>Reliable haulage that powers the entire Rehohub ecosystem.</p>
-            </div>
-            <div class="why__item reveal" style="--d: 0.08s">
-              <span>02</span>
-              <div class="why__ico">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </div>
-              <h3>Road mobility</h3>
-              <p>Safe, road-worthy fleets moving clients across the region.</p>
-            </div>
-            <div class="why__item reveal" style="--d: 0.16s">
-              <span>03</span>
-              <div class="why__ico">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </div>
-              <h3>Rail ambitions</h3>
-              <p>A long-term commitment to improving the Nigerian railway system.</p>
-            </div>
+                <div><b>PIN-confirmed delivery</b><span>Dispute protection for customers and riders.</span></div>
+              </li>
+            </ul>
           </div>
         </div>
       </section>
@@ -236,10 +1237,9 @@
             </svg>
             <div>
               <span class="eyebrow eyebrow--light">Let's build together</span>
-              <h2 style="margin-top: 18px">Your one-stop hub<br />starts here.</h2>
+              <h2 style="margin-top: 18px">Move anything,<br />anywhere.</h2>
               <p>
-                Partner with any Rehohub subsidiary, invest in our ecosystem or bring your next big project to life. Our
-                team responds within one business day.
+                Need regular deliveries, a supply-chain partner or a fleet contract? Talk to the RehoTrans team, or book a single delivery on AiMove.
               </p>
             </div>
             <div class="cta__contact">
