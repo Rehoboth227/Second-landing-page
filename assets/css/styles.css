@@ -8712,3 +8712,13 @@ ul {
 .rt .cta {
   background: linear-gradient(135deg, var(--am-dark), var(--am));
 }
+
+.intro-vid {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  background: #0c2a5e;
+  box-shadow: 0 30px 60px -30px rgba(12, 42, 94, 0.5);
+}
