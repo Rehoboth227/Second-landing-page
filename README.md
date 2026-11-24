@@ -10,7 +10,7 @@ index.html                     Home page: hero, about, mission/vision, services,
 services/<name>.html           One page per subsidiary (10): Rheti, RehoCon, RehoFarm, RehoTrans,
                                RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive
 products/aipay.html            AiPay: e-store with built-in payments
-products/greenfed.html         GreenFed: meal plans, groceries and community
+products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
 products/airise/               AiRise HR and employability site:
   index.html                     overview
@@ -28,6 +28,8 @@ assets/css/styles.css          All styles (one file, design tokens at the top)
 assets/js/main.js              Shared interactions: menu, scroll reveal, counters
 assets/css/aimove-app.css      AiMove web app styles (light and dark)
 assets/js/aimove-app.js        AiMove web app: data, pricing, routing and every screen
+assets/css/greenfed-app.css    GreenFed web app styles (light and dark)
+assets/js/greenfed-app.js      GreenFed web app: meal library, catalogue, pricing, routing and every screen
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
 assets/css/airise-app.css      AiRise app pages (dashboard, course player, trainer studio)
 assets/js/airise-app.js        AiRise course data, dashboard and course player
@@ -81,15 +83,38 @@ between the three roles, which share the same data.
 It is front-end only: data is saved in the browser (localStorage), payments, maps, calls and sign-in
 providers are simulated, and riders, distances and GPS positions are sample data until a backend is connected.
 
+## GreenFed web app
+
+`products/greenfed.html` is the GreenFed web app, not a marketing page. It follows the "GreenFed USERS DESIGN"
+Figma screens (onboarding, sign-in and sign-up, health records, meal plans, grocery, community and
+notifications) and the GreenFed requirements:
+
+- **Customers** add family members and allergies, request a meal plan (members, duration, meals, allergies),
+  review the price and pay, then follow it from payment to delivery. Delivered plans show day by day and per
+  person, avoid each person's allergies, and can be downloaded, shared and reviewed. The grocery store has
+  categories, offers, favourites and "from my plan" shopping, an allergy check in the cart, weekly delivery
+  slots and stage-by-stage tracking with reviews and late or poor-quality reports. Communities can be public
+  or private, with posts, nested replies and sharing.
+- **Employees** (nutritionist, supply manager, quality assurance, packaging and delivery, health specialist,
+  supplier) work one order at a time, see a work meter with expected earnings, save salary details and log
+  complaints.
+- **Administrators** see every order with who ordered and who picked it, change user status (active, warning,
+  ban, deactivate), resolve conflicts (late delivery: waive the next delivery; poor quality: recall and
+  resupply), pay staff and handle complaints.
+
+It is front-end only: data is saved in the browser (localStorage), payments and sign-in providers are
+simulated, and prices (in US dollars, as in the design; $37.50 per person per week for meal plans) and all
+people, orders and records are sample data until a backend is connected.
+
 ## Brand application
 
-| Guideline | Implementation |
-|---|---|
+| Guideline                                        | Implementation                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------ |
 | Colour palette `#1760BA` · `#2185FF` · `#FFFFFF` | CSS tokens `--blue-700`, `--blue-500`, `--white`; derived navy tints for depth |
-| Typography: Hurme Geometric Sans 4 | First in the font stack; **Outfit** (Google Fonts) is the web fallback |
-| Logo, word mark and logo icon | The "R" mark is an inline SVG; favicon in `assets/img/favicon.svg` |
-| Heading underline bar device | `.bar` utility under section titles |
-| Icon pattern (merchandise) | Animated R-pattern strip between Services and Products |
+| Typography: Hurme Geometric Sans 4               | First in the font stack; **Outfit** (Google Fonts) is the web fallback         |
+| Logo, word mark and logo icon                    | The "R" mark is an inline SVG; favicon in `assets/img/favicon.svg`             |
+| Heading underline bar device                     | `.bar` utility under section titles                                            |
+| Icon pattern (merchandise)                       | Animated R-pattern strip between Services and Products                         |
 
 Sub-brands keep their own guides: AiPay's yellow accent, GreenFed's greens, AiMove's app blue,
 and the navy and gold of AiRise and Rheti (Rheti uses Poppins, per its brand guide).
