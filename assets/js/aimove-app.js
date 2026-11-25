@@ -1,7 +1,9 @@
 /* AiMove web app.
    Built from the "upgrade Aimove" Figma screens and the AiMove Android app
    (screens, PricingEngine.kt, statuses, rider dashboard, admin dashboard).
-   Everything runs in the browser: data is saved in localStorage and there is no server yet. */
+   Sign-in, sign-up, approvals and roles use the shared Rehohub account system (/api, via
+   rh-auth.js): the server decides who may use the customer, rider and operations sides.
+   Deliveries, wallet and payouts are still saved per account on this device. */
 (() => {
   "use strict";
 
@@ -404,7 +406,6 @@
     ];
     return {
       v: 1,
-      seenIntro: false,
       session: null,
       user: {
         name: "Ken Nwaeze",
@@ -519,17 +520,37 @@
       draft: null,
     };
   }
+  // Saved per account on this device until AiMove bookings are connected to the server.
   const KEY = "aimove-app-v1";
-  let S;
-  try {
-    S = JSON.parse(localStorage.getItem(KEY));
-  } catch (e) {
-    S = null;
-  }
-  if (!S || S.v !== 1) S = seed();
-  const save = () => {
+  let STORE = KEY;
+  let S = seed();
+  let ACCOUNT = null; // the signed-in Rehohub account (from the server)
+  let MYROLES = []; // AiMove roles the server has approved for this account
+  function loadFor(account) {
+    STORE = KEY + ":" + account.id;
+    let saved = null;
     try {
-      localStorage.setItem(KEY, JSON.stringify(S));
+      saved = JSON.parse(localStorage.getItem(STORE));
+    } catch (e) {}
+    if (saved && saved.v === 1) {
+      S = saved;
+      return;
+    }
+    // A new account starts with an empty wallet and no deliveries of its own.
+    S = seed();
+    S.packages = S.packages.filter((p) => p.by !== "me");
+    S.wallet = 0;
+    S.tx = [];
+    S.cards = [];
+    S.bank = null;
+    S.rider = { online: false, balance: 0, today: 0, acceptance: 100, payouts: [] };
+    S.notes = [];
+    S.user = { ...S.user, business: "", rc: "", address: "", vehicle: "", plate: "", licence: "" };
+  }
+  const save = () => {
+    if (!ACCOUNT) return;
+    try {
+      localStorage.setItem(STORE, JSON.stringify(S));
     } catch (e) {}
   };
   const pkgById = (id) => S.packages.find((p) => p.id === id);
@@ -688,76 +709,14 @@
     return authShell(`<div class="onb"><div class="onb__art">${ic(icon)}</div><h1>${t}</h1><p class="mute">${d}</p>
       <div class="dots">${ONB.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div></div>
       <div class="row row--sb"><button class="btn btn--ghost btn--sm" data-act="skip">Skip</button>
-      ${i < 2 ? `<a class="btn btn--sm" href="#/welcome?s=${i + 1}">Next ${ic("chev-right")}</a>` : `<a class="btn btn--sm" href="#/signup">Get started ${ic("chev-right")}</a>`}</div>
-      <p class="auth__alt">Already have an account? <a class="link" href="#/login">Sign in</a></p>`);
+      ${i < 2 ? `<a class="btn btn--sm" href="#/welcome?s=${i + 1}">Next ${ic("chev-right")}</a>` : `<a class="btn btn--sm" href="#/start">Get started ${ic("chev-right")}</a>`}</div>
+      <p class="auth__alt">Already have an account? <a class="link" href="${esc(RH.loginUrl(location.pathname))}">Sign in</a></p>`);
   };
-  A.signup = (q) => {
-    const role = q.get("role") === "rider" ? "rider" : "business";
-    const d = S.signup || {};
-    return authShell(`<p class="auth__step">Step 1 of 2</p><h1>Create an account</h1><p>Complete the sign-up process to get started.</p>
-      <div class="seg" role="radiogroup" aria-label="Account type">
-        <label><input type="radio" name="role" value="business" ${role === "business" ? "checked" : ""} data-act="role-pick"><span>${ic("briefcase")}Business<small>Send packages</small></span></label>
-        <label><input type="radio" name="role" value="rider" ${role === "rider" ? "checked" : ""} data-act="role-pick"><span>${ic("bike")}Rider<small>Deliver and earn</small></span></label></div>
-      <form class="stack" data-form="signup" novalidate>
-        <label class="field"><span>Full name</span><input class="inp" name="name" autocomplete="name" value="${esc(d.name || "")}" required></label>
-        <label class="field"><span>Email address</span><input class="inp" name="email" type="email" autocomplete="email" value="${esc(d.email || "")}" required></label>
-        <label class="field"><span>Phone number</span><input class="inp" name="phone" type="tel" autocomplete="tel" placeholder="+234" value="${esc(d.phone || "")}" required></label>
-        <label class="field"><span>Password</span><input class="inp" name="pw" type="password" autocomplete="new-password" minlength="8" required><small>At least 8 characters.</small></label>
-        <label class="check"><input type="checkbox" name="terms" required><span>I agree to the terms and conditions and privacy policy.</span></label>
-        <p class="err" data-err hidden></p>
-        <button class="btn btn--block">Next ${ic("chev-right")}</button>
-      </form>
-      <div class="or">or sign up using</div>
-      <div class="social"><button class="btn btn--ghost" data-act="social">${ic("globe")}Google</button><button class="btn btn--ghost" data-act="social">${ic("user")}Facebook</button></div>
-      <p class="auth__alt">Already have an account? <a class="link" href="#/login">Sign in</a></p>`);
-  };
-  A.signup2 = () => {
-    const role = (S.signup && S.signup.role) || "business";
-    return authShell(`<p class="auth__step">Step 2 of 2</p><h1>${role === "rider" ? "Your vehicle" : "Your business"}</h1>
-      <p>${role === "rider" ? "Riders are verified before their first job." : "Business accounts can schedule pickups and download statements."}</p>
-      <form class="stack" data-form="signup2" novalidate>
-        ${
-          role === "rider"
-            ? `<label class="field"><span>Vehicle type</span><select class="inp" name="vehicle"><option>Motorcycle</option><option>Car</option><option>Van</option><option>Truck</option></select></label>
-             <label class="field"><span>Plate number</span><input class="inp" name="plate" placeholder="e.g. R-359-224G" required></label>
-             <label class="field"><span>Driver's licence number</span><input class="inp" name="licence" required></label>`
-            : `<label class="field"><span>Business name</span><input class="inp" name="business" required></label>
-             <label class="field"><span>RC number</span><input class="inp" name="rc" placeholder="CAC registration number" required></label>`
-        }
-        <p class="err" data-err hidden></p>
-        <button class="btn btn--block">Create account</button>
-        <a class="btn btn--ghost btn--block" href="#/signup?role=${role}">Back</a>
-      </form>`);
-  };
-  A.login = () =>
-    authShell(`<h1>Welcome back</h1><p>Fill in your email and password to continue.</p>
-    <form class="stack" data-form="login" novalidate>
-      <label class="field"><span>Email address</span><input class="inp" name="email" type="email" autocomplete="email" value="${esc(S.user.email)}" required></label>
-      <label class="field"><span>Password</span><input class="inp" name="pw" type="password" autocomplete="current-password" required></label>
-      <div class="row row--sb"><label class="check"><input type="checkbox" checked><span>Remember password</span></label><a class="link" href="#/forgot">Forgot password?</a></div>
-      <p class="err" data-err hidden></p>
-      <button class="btn btn--block">Log in</button>
-    </form>
-    <div class="or">or log in using</div>
-    <div class="social"><button class="btn btn--ghost" data-act="social">${ic("globe")}Google</button><button class="btn btn--ghost" data-act="social">${ic("user")}Facebook</button></div>
-    <p class="auth__alt">Don't have an account? <a class="link" href="#/signup">Sign up</a></p>
-    <p class="auth__alt"><small>Demo: any password of 6+ characters works. <button class="link" data-act="demo-login" data-role="rider">Log in as a rider</button> · <button class="link" data-act="demo-login" data-role="admin">Operations</button></small></p>`);
-  A.forgot = () =>
-    authShell(`<a class="back" href="#/login" aria-label="Back">${ic("chev-left")}</a><h1>Forgot password</h1><p>Enter your email address and we'll send you a 6-digit code.</p>
-    <form class="stack" data-form="forgot" novalidate><label class="field"><span>Email address</span><input class="inp" name="email" type="email" value="${esc(S.user.email)}" required></label>
-    <p class="err" data-err hidden></p><button class="btn btn--block">Send OTP</button></form>
-    <p class="auth__alt">Remember password? <a class="link" href="#/login">Back to log in</a></p>`);
-  A.otp = () =>
-    authShell(`<a class="back" href="#/forgot" aria-label="Back">${ic("chev-left")}</a><h1>OTP verification</h1><p>Enter the 6-digit code sent to ${esc(S.user.email)}. <small class="mute">(Demo code: 123456)</small></p>
-    <form class="stack" data-form="otp" novalidate><div class="otp">${[0, 1, 2, 3, 4, 5].map((i) => `<input class="inp" inputmode="numeric" maxlength="1" aria-label="Digit ${i + 1}" data-otp>`).join("")}</div>
-    <p class="err" data-err hidden></p><button class="btn btn--block">Verify</button></form>
-    <p class="auth__alt">Didn't receive a code? <button class="link" data-act="resend">Resend</button></p>`);
-  A.reset = () =>
-    authShell(`<h1>Set a new password</h1><p>Choose a password you haven't used before.</p>
-    <form class="stack" data-form="reset" novalidate>
-      <label class="field"><span>New password</span><input class="inp" name="pw" type="password" autocomplete="new-password" minlength="8" required></label>
-      <label class="field"><span>Confirm password</span><input class="inp" name="pw2" type="password" autocomplete="new-password" required></label>
-      <p class="err" data-err hidden></p><button class="btn btn--block">Set new password</button></form>`);
+  A.start = () =>
+    authShell(`<h1>Welcome to AiMove</h1><p>Sign in with your Rehohub account. The same account works for AiPay, GreenFed and AiRise.</p>
+      <a class="btn btn--block" href="${esc(RH.loginUrl(location.pathname))}">Sign in</a>
+      <a class="btn btn--line btn--block" href="${esc(RH.url("account/register.html?product=aimove&role=customer"))}">Create a business account</a>
+      <p class="auth__alt">Want to deliver with AiMove? <a class="link" href="${esc(RH.url("account/register.html?product=aimove&role=rider"))}">Apply as a rider</a></p>`);
 
   // ------------------------------------------------------------ app shell
   const NAV = {
@@ -812,7 +771,7 @@
       path === h || (h !== "#/home" && h !== "#/rider" && h !== "#/ops" && path.startsWith(h + "/"))
         ? ' aria-current="page"'
         : "";
-    const who = r === "rider" ? ME_RIDER.name : r === "admin" ? "Ops team" : S.user.name;
+    const who = ACCOUNT ? ACCOUNT.full_name : S.user.name;
     const nav = NAV[r]
       .map(
         ([h, i, t]) =>
@@ -825,17 +784,21 @@
         <a class="logo" href="${NAV[r][0][0]}"><img src="../assets/img/aimove/mark.png" alt="" width="399" height="400"><span>AiMove</span></a>
         <nav class="nav" aria-label="Main"><h2>${r === "admin" ? "Operations" : r === "rider" ? "Rider" : "Menu"}</h2><ul>${nav}</ul></nav>
         <div class="side__foot">
-          <label class="rolebox"><small>Viewing as (demo)</small><select class="inp" data-act="role" aria-label="Switch role">${Object.entries(
-            ROLE_NAME,
-          )
-            .map(([k, n]) => `<option value="${k}" ${k === r ? "selected" : ""}>${n}</option>`)
-            .join("")}</select></label>
+          ${
+            MYROLES.length > 1
+              ? `<label class="rolebox"><small>Your roles</small><select class="inp" data-act="role" aria-label="Switch between your roles">${MYROLES.map(
+                  (k) => `<option value="${k}" ${k === r ? "selected" : ""}>${ROLE_NAME[k]}</option>`,
+                ).join("")}</select></label>`
+              : ""
+          }
+          <a class="link" href="${esc(RH.url("account/index.html"))}" style="font-size:13px;display:inline-block;margin:6px 4px 10px">My Rehohub account</a>
           <div class="me"><span class="ava ${r === "rider" ? "ava--o" : ""}">${initials(who)}</span><div><b>${esc(who)}</b><small>${ROLE_NAME[r]}</small></div></div>
         </div>
       </aside>
       <main class="main" id="main">
         <div class="top">${v.back ? `<a class="back" href="${v.back}" aria-label="Back">${ic("chev-left")}</a>` : ""}<h1>${v.title}</h1>
           ${r === "customer" ? `<a class="ibtn" href="#/notifications" aria-label="Notifications${unread ? ", " + unread + " unread" : ""}">${ic("bell")}${unread ? `<span class="dot">${unread}</span>` : ""}</a>` : ""}</div>
+        <p class="preview-note" style="margin:0 0 16px;padding:10px 14px;border-radius:12px;background:#fff7ed;color:#7c2d12;font-size:13px">Preview: deliveries, wallet and payouts are saved on this device only, and no money moves, until AiMove bookings go live.</p>
         ${v.html}
       </main>
       <nav class="tabs" style="--n:${TABS[r].length}" aria-label="Tabs">${tabs}</nav>
@@ -1058,7 +1021,6 @@
       <section class="card stack"><h2 class="h" style="margin:0">Package info</h2>
         <dl class="kv"><div><dt>From</dt><dd>${esc(p.origin.addr)}</dd></div><div><dt>To</dt><dd>${esc(p.dest.addr)}</dd></div><div><dt>Recipient</dt><dd>${esc(p.dest.name)} · ${esc(p.dest.phone)}</dd></div><div><dt>Items</dt><dd class="o">${esc(p.items)}, ${p.kg} kg</dd></div><div class="tot"><dt>Total charge</dt><dd><b>${naira(p.fare.total)}</b></dd></div></dl>
         ${canCancel ? `<button class="btn btn--danger btn--sm" data-act="cancel" data-id="${p.id}">Cancel delivery</button>` : ""}</section>
-      ${next && p.status !== "CANCELLED" ? `<details class="demo"><summary>Demo controls</summary><p style="margin:8px 0">Riders update these steps in their app. Use this to see the next step.</p><button class="btn btn--ghost btn--sm" data-act="advance" data-id="${p.id}">Move to "${LABEL[next]}"</button></details>` : ""}
     </div></div>`,
     };
   };
@@ -1341,7 +1303,7 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
       <form class="stack" data-form="topup" novalidate><div class="chips">${[1000, 2000, 5000, 10000, 20000].map((v) => `<button type="button" class="chip" data-act="preset" data-v="${v}">${naira(v)}</button>`).join("")}</div>
       <label class="field"><span>Amount (₦)</span><input class="inp" name="amt" type="number" min="100" step="100" inputmode="numeric" required></label>
       <label class="field"><span>Payment source</span><select class="inp" name="src">${S.cards.map((c) => `<option value="card:${c.id}" ${m === "card" && c.def ? "selected" : ""}>${esc(c.brand)} •••• ${esc(c.last4)}</option>`).join("")}<option value="transfer" ${m === "transfer" ? "selected" : ""}>Bank transfer</option><option value="bank" ${m === "bank" ? "selected" : ""}>Bank (direct debit)</option></select></label>
-      <p class="mute" style="font-size:13px">Payments aren't connected yet, so the balance updates straight away in this demo.</p>
+      <p class="mute" style="font-size:13px">Payments aren't connected yet: nothing is charged, and the balance shown is kept on this device.</p>
       <p class="err" data-err hidden></p><div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn">Confirm top up</button></div></form>`);
   }
   function addCard() {
@@ -1366,7 +1328,7 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
     const p = pkgById(id);
     modal(`<h2>Complete delivery</h2><p class="mute">Ask ${esc(p.dest.name)} for the 4-digit PIN to confirm proof of delivery.</p>
       <form class="stack" data-form="pod" data-id="${id}" novalidate><label class="field"><span>4-digit customer PIN</span><input class="inp" name="pin" inputmode="numeric" maxlength="4" autocomplete="one-time-code" style="font-size:24px;letter-spacing:.4em;text-align:center"></label>
-      <p class="mute" style="font-size:13px">Demo: the PIN for this package is ${p.pin}.</p><p class="err" data-err hidden></p>
+      <p class="err" data-err hidden></p>
       <div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn btn--o">Complete POD</button></div></form>`);
   }
   function bankModal(withdraw) {
@@ -1400,12 +1362,7 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
   // ------------------------------------------------------------ router
   const AUTH = {
     welcome: A.welcome,
-    signup: A.signup,
-    signup2: A.signup2,
-    login: A.login,
-    forgot: A.forgot,
-    otp: A.otp,
-    reset: A.reset,
+    start: A.start,
   };
   const ROUTES = [
     [/^\/home$/, V.home, "customer"],
@@ -1435,6 +1392,15 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
     const [path, qs] = raw.split("?");
     const q = new URLSearchParams(qs || "");
     const key = path.replace(/^\//, "");
+    if (["login", "signup", "signup2", "forgot", "otp", "reset"].includes(key)) {
+      location.href =
+        key === "signup"
+          ? RH.url("account/register.html?product=aimove&role=" + (q.get("role") === "rider" ? "rider" : "customer"))
+          : key === "forgot"
+            ? RH.url("account/forgot.html")
+            : RH.loginUrl(location.pathname);
+      return;
+    }
     if (AUTH[key]) {
       if (S.session) return go(HOME[role()]);
       view().innerHTML = AUTH[key](q);
@@ -1442,9 +1408,10 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
       return;
     }
     if (!S.session) {
-      S.after = "#" + raw;
-      save();
-      return go(S.seenIntro ? "#/login" : "#/welcome");
+      try {
+        sessionStorage.setItem("am-after", "#" + raw);
+      } catch (e) {}
+      return go(localStorage.getItem("am-seen-intro") ? "#/start" : "#/welcome");
     }
     const m = ROUTES.map(([re, fn, r]) => [path.match(re), fn, r]).find((x) => x[0]);
     if (!m) return go(HOME[role()]);
@@ -1475,30 +1442,18 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
       e.hidden = !msg;
     }
   };
-  function login(r) {
-    S.session = { role: r };
-    S.seenIntro = true;
-    const next = S.after;
-    S.after = null;
-    save();
-    const ok = next && ROUTES.some(([re, , need]) => next.slice(1).split("?")[0].match(re) && (!need || need === r));
-    go(ok ? next : HOME[r]);
-  }
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const a = b.dataset.act,
       id = b.dataset.id;
-    if (["role", "role-pick", "pref", "online", "assign", "tile-search", "rider-search", "tx-search"].includes(a))
-      return;
+    if (["role", "pref", "online", "assign", "tile-search", "rider-search", "tx-search"].includes(a)) return;
     if (a === "skip") {
-      S.seenIntro = true;
-      save();
-      go("#/signup");
+      try {
+        localStorage.setItem("am-seen-intro", "1");
+      } catch (e) {}
+      go("#/start");
     }
-    if (a === "social") toast("Google and Facebook sign-in will be available once accounts are connected.");
-    if (a === "demo-login") login(b.dataset.role);
-    if (a === "resend") toast("A new code was sent (demo code: 123456)");
     if (a === "copy") {
       (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.v) : Promise.reject()).then(
         () => toast("Copied"),
@@ -1553,11 +1508,7 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
       const open = b.getAttribute("aria-expanded") === "true";
       go("#/profile" + (open ? "" : "?open=" + b.dataset.p));
     }
-    if (a === "logout") {
-      S.session = null;
-      save();
-      go("#/login");
-    }
+    if (a === "logout") RH.logout(RH.url("account/login.html"));
     if (a === "clear-rider") {
       if (S.draft) S.draft.rider = "";
     }
@@ -1626,12 +1577,11 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
   document.addEventListener("change", (e) => {
     const t = e.target;
     const a = t.dataset.act;
-    if (a === "role") {
+    if (a === "role" && MYROLES.includes(t.value)) {
       S.session = { role: t.value };
       save();
       go(HOME[t.value]);
     }
-    if (a === "role-pick") go("#/signup?role=" + t.value);
     if (a === "pref") {
       S.prefs[t.dataset.k] = t.checked;
       save();
@@ -1686,53 +1636,6 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
   });
 
   const FORMS = {
-    signup(f) {
-      const v = Object.fromEntries(new FormData(f));
-      if (v.name.trim().length < 2) return err(f, "Enter your full name.");
-      if (!/^\S+@\S+\.\S+$/.test(v.email)) return err(f, "Enter a valid email address.");
-      if (v.phone.replace(/\D/g, "").length < 10) return err(f, "Enter a valid phone number.");
-      if ((v.pw || "").length < 8) return err(f, "Password must be at least 8 characters.");
-      if (!v.terms) return err(f, "Please accept the terms and conditions.");
-      S.signup = {
-        role: $("[name=role]:checked").value,
-        name: v.name.trim(),
-        email: v.email.trim(),
-        phone: v.phone.trim(),
-      };
-      save();
-      go("#/signup2");
-    },
-    signup2(f) {
-      const v = Object.fromEntries(new FormData(f));
-      if (Object.values(v).some((x) => !String(x).trim())) return err(f, "Please fill in every field.");
-      Object.assign(S.user, { name: S.signup.name, email: S.signup.email, phone: S.signup.phone }, v);
-      toast("Account created");
-      login(S.signup.role === "rider" ? "rider" : "customer");
-    },
-    login(f) {
-      const v = Object.fromEntries(new FormData(f));
-      if (!/^\S+@\S+\.\S+$/.test(v.email)) return err(f, "Enter a valid email address.");
-      if ((v.pw || "").length < 6) return err(f, "Enter your password (6+ characters).");
-      login("customer");
-    },
-    forgot(f) {
-      if (!/^\S+@\S+\.\S+$/.test(f.email.value)) return err(f, "Enter a valid email address.");
-      toast("Code sent");
-      go("#/otp");
-    },
-    otp(f) {
-      const c = $$("[data-otp]", f)
-        .map((x) => x.value)
-        .join("");
-      if (c !== "123456") return err(f, "That code isn't right. Demo code: 123456.");
-      go("#/reset");
-    },
-    reset(f) {
-      if (f.pw.value.length < 8) return err(f, "Use at least 8 characters.");
-      if (f.pw.value !== f.pw2.value) return err(f, "Passwords don't match.");
-      toast("Password updated. Log in with your new password.");
-      go("#/login");
-    },
     send(f) {
       const d = readSend(f);
       $$(".inp", f).forEach((x) => x.classList.remove("bad"));
@@ -1971,6 +1874,54 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
     FORMS[f.dataset.form](f);
   });
 
-  if (S.prefs.dark) document.body.classList.add("dark");
-  render();
+  async function boot() {
+    let s;
+    try {
+      s = await RH.session(true);
+    } catch (e) {
+      view().innerHTML = authShell(
+        `<h1>Can't reach AiMove</h1><p>${esc(e.message)}</p><a class="btn btn--block" href="">Try again</a>`,
+      );
+      return;
+    }
+    ACCOUNT = s.user;
+    if (!ACCOUNT) {
+      S.session = null;
+      return render();
+    }
+    MYROLES = RH.rolesIn(ACCOUNT, "aimove").filter((r) => ["customer", "rider", "admin"].includes(r));
+    if (!MYROLES.length) {
+      await RH.guard("aimove", ["customer", "rider"]); // explains pending / not added yet
+      return;
+    }
+    loadFor(ACCOUNT);
+    S.user.name = ACCOUNT.full_name;
+    S.user.email = ACCOUNT.email;
+    if (ACCOUNT.phone) S.user.phone = ACCOUNT.phone;
+    const rider = ACCOUNT.memberships.find(
+      (m) => m.product === "aimove" && m.role === "rider" && m.status === "approved",
+    );
+    ME_RIDER.name = ACCOUNT.full_name;
+    if (rider) {
+      const d = rider.details || {};
+      S.user.vehicle =
+        S.user.vehicle || (d.vehicle_type ? d.vehicle_type[0].toUpperCase() + d.vehicle_type.slice(1) : "");
+      S.user.plate = S.user.plate || d.plate_number || "";
+      S.user.licence = S.user.licence || d.licence_number || "";
+      ME_RIDER.vehicle = S.user.vehicle;
+      ME_RIDER.plate = S.user.plate;
+    }
+    const keep = S.session && MYROLES.includes(S.session.role) ? S.session.role : MYROLES[0];
+    S.session = { role: keep };
+    save();
+    if (S.prefs.dark) document.body.classList.add("dark");
+    let after = null;
+    try {
+      after = sessionStorage.getItem("am-after");
+      sessionStorage.removeItem("am-after");
+    } catch (e) {}
+    if (after && !/^#\/(welcome|start|login|signup)/.test(after)) return go(after);
+    render();
+  }
+  boot();
 })();

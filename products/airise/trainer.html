@@ -548,6 +548,10 @@
     <div class="toast" role="status" aria-live="polite">
       <svg class="i" aria-hidden="true"><use href="#i-check-circle" /></svg><span></span>
     </div>
+    <script src="../../assets/js/rh-auth.js"></script>
+    <script>
+      RH.guard("airise", ["trainer"]).catch(() => {});
+    </script>
     <script src="../../assets/js/airise-app.js"></script>
     <script src="../../assets/js/airise-trainer.js"></script>
   </body>

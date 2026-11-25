@@ -1,8 +1,9 @@
 /* GreenFed web app.
    Built from the "GreenFed USERS DESIGN" Figma file and the GreenFed requirements
-   (user, employee and administrator sides). Runs in the browser only: data is saved in
-   localStorage, and payments, email and social sign-in are simulated. Prices follow the
-   design's currency (US dollars). */
+   (customer, employee and administrator sides). Sign-in, sign-up, approvals and roles use
+   the shared Rehohub account system (/api, via rh-auth.js): the server decides who may use
+   which side. Meal plans, orders and records are still saved per account on this device,
+   and card payments are not connected yet. Prices follow the design's currency (US dollars). */
 (() => {
   "use strict";
 
@@ -410,7 +411,6 @@
       .forEach((o) => (o.total = o.items.reduce((a, [id, q]) => a + priceOf(item(id)) * q, 0)));
     return {
       v: 1,
-      seenIntro: false,
       session: null,
       user: {
         name: "Alex Bush",
@@ -687,17 +687,58 @@
       draft: null,
     };
   }
+  // Saved per account on this device until GreenFed ordering is connected to the server.
   const KEY = "greenfed-app-v1";
-  let S;
-  try {
-    S = JSON.parse(localStorage.getItem(KEY));
-  } catch (e) {
-    S = null;
-  }
-  if (!S || S.v !== 1) S = seed();
-  const save = () => {
+  let STORE = KEY;
+  let S = seed();
+  let ACCOUNT = null; // the signed-in Rehohub account (from the server)
+  let MYROLES = []; // GreenFed roles the server has approved for this account
+  let FRESH = false;
+  const ROLEMAP = { customer: "user", employee: "employee", admin: "admin" };
+  const EMPMAP = {
+    nutritionist: "nutritionist",
+    supply_manager: "supply",
+    quality_assurance: "qa",
+    packaging_delivery: "delivery",
+    health_specialist: "health",
+    supplier: "supplier",
+  };
+  function loadFor(account) {
+    STORE = KEY + ":" + account.id;
+    let saved = null;
     try {
-      localStorage.setItem(KEY, JSON.stringify(S));
+      saved = JSON.parse(localStorage.getItem(STORE));
+    } catch (e) {}
+    if (saved && saved.v === 1) {
+      S = saved;
+      return;
+    }
+    // A new account starts with its own empty household and history.
+    FRESH = true;
+    S = seed();
+    S.members = [{ ...S.members[0], name: account.full_name, allergies: [], conditions: [] }];
+    S.records = [];
+    S.orders = S.orders.filter((o) => o.owner);
+    S.favs = [];
+    S.cards = [];
+    S.emp = { type: "nutritionist", tasks: 0, paid: [], bank: null, complaints: [] };
+    S.users = [];
+    S.notes = [
+      {
+        id: uid("n"),
+        cat: "Profile",
+        t: "Welcome to GreenFed",
+        s: "Add your household and allergies so your nutritionist can plan around them.",
+        at: now(),
+        read: false,
+        link: "#/family",
+      },
+    ];
+  }
+  const save = () => {
+    if (!ACCOUNT) return;
+    try {
+      localStorage.setItem(STORE, JSON.stringify(S));
     } catch (e) {}
   };
   const order = (id) => S.orders.find((o) => o.id === id);
@@ -819,8 +860,6 @@
       </aside>
       <main class="auth__main" id="main"><div class="auth__box">${inner}</div></main></div>`;
   }
-  const social = (verb) =>
-    `<div class="or">Or ${verb} with</div><div class="social" style="grid-template-columns:repeat(3,1fr)"><button class="btn btn--ghost" data-act="social" data-n="Google">${ic("globe")}Google</button><button class="btn btn--ghost" data-act="social" data-n="Facebook">${ic("user")}Facebook</button><button class="btn btn--ghost" data-act="social" data-n="Twitter">${ic("at")}Twitter</button></div>`;
   const A = {};
   A.welcome = (q) => {
     const i = Math.min(3, Math.max(0, Number(q.get("s")) || 0));
@@ -832,63 +871,8 @@
   };
   A.start = () =>
     authShell(`<div class="onb"><img src="../assets/img/greenfed/badge.png" alt="" width="160" height="160" style="width:140px;border-radius:50%"><h1>Welcome!</h1><p class="mute">Fresh food. Smarter you.</p></div>
-    <a class="btn btn--block" href="#/login">Sign in</a><a class="btn btn--line btn--block" href="#/signup">Sign up</a>`);
-  A.login = () =>
-    authShell(`<h1>Welcome back</h1><p>Login to your account.</p>
-    <form class="stack" data-form="login" novalidate>
-      <label class="field"><span>Username or email</span><input class="inp" name="email" autocomplete="username" value="${esc(S.user.email)}"></label>
-      <label class="field"><span>Password</span><input class="inp" name="pw" type="password" autocomplete="current-password"></label>
-      <div class="row row--sb"><label class="check"><input type="checkbox" checked><span>Remember me</span></label><a class="link" href="#/forgot">Forgot password?</a></div>
-      <p class="err" data-err hidden></p><button class="btn btn--block">Login</button></form>
-    ${social("log in")}
-    <p class="auth__alt">Don't have an account? <a class="link" href="#/signup">Sign up</a></p>
-    <p class="auth__alt"><small>Demo: any password of 6+ characters works. Staff: <button class="link" data-act="demo" data-role="employee">Employee</button> · <button class="link" data-act="demo" data-role="admin">Administrator</button></small></p>`);
-  A.signup = (q) => {
-    const as = q.get("as") || "user";
-    return authShell(`<h1>Create your account</h1><p>Join GreenFed in a minute.</p>
-      <div class="seg" role="radiogroup" aria-label="Joining as">${[
-        ["user", "Customer"],
-        ["employee", "Employee"],
-        ["admin", "Administrator"],
-      ]
-        .map(
-          ([v, n]) =>
-            `<label><input type="radio" name="as" value="${v}" ${as === v ? "checked" : ""} data-act="as"><span>${n}</span></label>`,
-        )
-        .join("")}</div>
-      <form class="stack" data-form="signup" data-as="${as}" novalidate>
-        <label class="field"><span>Full name</span><input class="inp" name="name" autocomplete="name"></label>
-        <label class="field"><span>Email or phone number</span><input class="inp" name="email" autocomplete="email"></label>
-        ${
-          as === "employee"
-            ? `<div class="grid2"><label class="field"><span>Employee code</span><input class="inp" name="code" placeholder="From your employment letter"><small>Demo: GF-STAFF-2026</small></label><label class="field"><span>Employee type</span><select class="inp" name="etype">${Object.entries(
-                EMP,
-              )
-                .map(([k2, e]) => `<option value="${k2}">${e.name}</option>`)
-                .join("")}</select></label></div>`
-            : ""
-        }
-        ${as === "admin" ? `<div class="grid2"><label class="field"><span>Admin code</span><input class="inp" name="code"><small>Demo: GF-ADMIN-2026</small></label><label class="field"><span>Position</span><select class="inp" name="pos"><option>Director</option><option>Manager</option><option>Conflict manager</option><option>Moderator</option></select></label></div>` : ""}
-        <label class="field"><span>Password</span><input class="inp" name="pw" type="password" autocomplete="new-password"><small>At least 8 characters.</small></label>
-        <label class="field"><span>Confirm password</span><input class="inp" name="pw2" type="password" autocomplete="new-password"></label>
-        <label class="check"><input type="checkbox" name="terms"><span>I agree to the terms of service and privacy policy.</span></label>
-        <p class="err" data-err hidden></p><button class="btn btn--block">Sign up</button></form>
-      ${as === "user" ? social("sign up") : ""}
-      <p class="auth__alt">Already have an account? <a class="link" href="#/login">Sign in</a></p>`);
-  };
-  A.verify = () =>
-    authShell(`<div class="onb"><div class="onb__art">${ic("mail")}</div><h1>Verify your email</h1><p class="mute">We've sent an email to ${esc((S.pending && S.pending.email) || S.user.email)}. Click the link inside to verify. <small>(Demo: use the button below.)</small></p></div>
-    <button class="btn btn--block" data-act="verified">I've verified my email</button><button class="btn btn--ghost btn--block" data-act="resend">Resend email</button><a class="link center" href="#/signup">Not you?</a>`);
-  A.forgot = () =>
-    authShell(`<a class="back" href="#/login" aria-label="Back">${ic("chev-left")}</a><h1>Forgot password</h1><p>Enter your email and we'll send you a code.</p>
-    <form class="stack" data-form="forgot" novalidate><label class="field"><span>Email</span><input class="inp" name="email" type="email" value="${esc(S.user.email)}"></label><p class="err" data-err hidden></p><button class="btn btn--block">Continue</button></form>`);
-  A.code = () =>
-    authShell(`<a class="back" href="#/forgot" aria-label="Back">${ic("chev-left")}</a><h1>Verification code</h1><p>Enter the code sent to ${esc(S.user.email)}. <small class="mute">(Demo: 1234)</small></p>
-    <form class="stack" data-form="code" novalidate><div class="otp" style="grid-template-columns:repeat(4,minmax(0,1fr))">${[0, 1, 2, 3].map((i) => `<input class="inp" inputmode="numeric" maxlength="1" aria-label="Digit ${i + 1}" data-otp>`).join("")}</div>
-    <p class="err" data-err hidden></p><button class="btn btn--block">Verify</button></form><p class="auth__alt">Not received? <button class="link" data-act="resend">Resend</button></p>`);
-  A.reset = () =>
-    authShell(`<h1>Create new password</h1><p>Enter a new password.</p>
-    <form class="stack" data-form="reset" novalidate><label class="field"><span>New password</span><input class="inp" name="pw" type="password" autocomplete="new-password"></label><label class="field"><span>Confirm password</span><input class="inp" name="pw2" type="password" autocomplete="new-password"></label><p class="err" data-err hidden></p><button class="btn btn--block">Create new password</button></form>`);
+    <a class="btn btn--block" href="${esc(RH.loginUrl(location.pathname))}">Sign in</a><a class="btn btn--line btn--block" href="${esc(RH.url("account/register.html?product=greenfed&role=customer"))}">Create an account</a>
+    <p class="auth__alt">One Rehohub account works for GreenFed, AiPay, AiMove and AiRise.<br>Working with us? <a class="link" href="${esc(RH.url("account/register.html?product=greenfed&role=employee"))}">Apply as GreenFed staff</a></p>`);
   A.setup = () =>
     authShell(`<p class="auth__step">One last step</p><h1>Tell us about you</h1><p>Your nutritionist uses this to plan your meals. You can change it any time.</p>
     <form class="stack" data-form="setup" novalidate>
@@ -954,7 +938,7 @@
     const unread = S.notes.filter((n) => !n.read).length;
     const homes = ["#/home", "#/work", "#/admin"];
     const cur = (h) => (path === h || (!homes.includes(h) && path.startsWith(h + "/")) ? ' aria-current="page"' : "");
-    const who = r === "employee" ? EMP[S.emp.type].who : r === "admin" ? "GreenFed admin" : S.user.name;
+    const who = ACCOUNT ? ACCOUNT.full_name : S.user.name;
     const nav = NAV[r]
       .map(
         ([h, i, t]) =>
@@ -972,11 +956,14 @@
         <a class="logo-gf" href="${HOME[r]}"><img src="../assets/img/greenfed/logo.png" alt="GreenFed" width="900" height="517"></a>
         <nav class="nav" aria-label="Main"><h2>${r === "user" ? "Menu" : ROLE[r]}</h2><ul>${nav}</ul></nav>
         <div class="side__foot">
-          <label class="rolebox"><small>Viewing as (demo)</small><select class="inp" data-act="role" aria-label="Switch role">${Object.entries(
-            ROLE,
-          )
-            .map(([kk, n]) => `<option value="${kk}" ${kk === r ? "selected" : ""}>${n}</option>`)
-            .join("")}</select></label>
+          ${
+            MYROLES.length > 1
+              ? `<label class="rolebox"><small>Your roles</small><select class="inp" data-act="role" aria-label="Switch between your roles">${MYROLES.map(
+                  (kk) => `<option value="${kk}" ${kk === r ? "selected" : ""}>${ROLE[kk]}</option>`,
+                ).join("")}</select></label>`
+              : ""
+          }
+          <a class="link" href="${esc(RH.url("account/index.html"))}" style="font-size:13px">My Rehohub account</a>
           <div class="me"><span class="ava">${initials(who)}</span><div><b>${esc(who)}</b><small>${r === "employee" ? EMP[S.emp.type].name : ROLE[r]}</small></div></div>
         </div>
       </aside>
@@ -985,6 +972,7 @@
         <div class="top top--gf">${v.back ? `<a class="back" href="${v.back}" aria-label="Back">${ic("chev-left")}</a>` : ""}<h1>${v.title}</h1>${cartBtn}
           ${r === "user" ? `<a class="ibtn" href="#/notifications" aria-label="Notifications${unread ? ", " + unread + " unread" : ""}">${ic("bell")}${unread ? `<span class="dot">${unread}</span>` : ""}</a>` : ""}</div>
         ${v.back ? `<div class="gf-head" style="justify-content:flex-start"><a class="back" href="${v.back}" aria-label="Back">${ic("chev-left")}</a></div>` : ""}
+        <p class="preview-note">Preview: meal plans, orders and records are saved on this device only, and no payment is taken, until GreenFed ordering goes live.</p>
         ${v.html}
       </main>
       <nav class="tabs" style="--n:${TABS[r].length}" aria-label="Tabs">${tabs}</nav></div>`;
@@ -1001,7 +989,7 @@
     return {
       title: "Home",
       html: `<div class="cols"><div class="stack">
-      <section class="welcome"><small>Welcome,</small><h2>${esc(S.user.name.split(" ")[0])}</h2><p>${S.members.length} people in your household · ${recs.filter((r) => r.type === "Allergy").length} allergies on record. Your nutritionist plans around them.</p></section>
+      <section class="welcome"><small>Welcome,</small><h2>${esc(S.user.name.split(" ")[0])}</h2><p>${S.members.length} ${S.members.length === 1 ? "person" : "people"} in your household · ${recs.filter((r) => r.type === "Allergy").length} allergies on record. Your nutritionist plans around them.</p></section>
       ${
         plan
           ? `<section class="card stack"><div class="row row--sb wrap"><h2 class="h" style="margin:0">Today's meals · ${DAYS[di]}</h2><a class="link" href="#/plans/${plan.id}?d=${di}">Full plan</a></div>
@@ -1160,7 +1148,7 @@
       <label class="field"><span>Card number</span><input class="inp" name="num" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="1234 5678 8797 6587"></label>
       <label class="field"><span>Card name</span><input class="inp" name="cname" autocomplete="cc-name" value="${esc(S.user.name)}"></label>
       <div class="grid2"><label class="field"><span>Expiry date</span><input class="inp" name="exp" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY"></label><label class="field"><span>CVV</span><input class="inp" name="cvv" inputmode="numeric" maxlength="4" autocomplete="cc-csc"></label></div>
-      <p class="mute" style="font-size:13px">Payments aren't connected yet; nothing is charged in this demo and only the last four digits are kept.</p></section>
+      <p class="mute" style="font-size:13px">Card payments aren't connected yet: nothing is charged, and only the last four digits are kept on this device.</p></section>
       <aside class="stack"><section class="card stack"><dl class="kv"><div><dt>${d.kind === "plan" ? "Meal plan" : "Grocery items"}</dt><dd>${money(d.kind === "plan" ? d.price : d.total)}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(d.kind === "plan" ? d.price : d.total)}</b></dd></div></dl><p class="err" data-err hidden></p><button class="btn btn--block">Pay now</button></section></aside></form>`,
     };
   };
@@ -1300,7 +1288,7 @@
           : `<dl class="kv"><div><dt>For</dt><dd>${esc(o.members.map(memberName).join(", "))}</dd></div><div><dt>Meals</dt><dd>${esc(o.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(o.allergies.join(", ") || "None")}</dd></div><div><dt>Nutritionist</dt><dd>${esc(o.staff.nutritionist || "Not picked yet")}</dd></div><div class="tot"><dt>Paid</dt><dd><b>${money(o.price)}</b></dd></div></dl>`
       }</section>
       ${isG ? (conflict ? `<section class="card stack"><b>Problem reported</b><p class="mute">${esc(conflict.type)} · ${chip(conflict.status)}${conflict.resolution ? "<br>" + esc(conflict.resolution) : ""}</p></section>` : `<section class="card stack"><b>Something wrong?</b><div class="grid2"><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Late delivery">Late delivery</button><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Poor quality">Poor quality</button></div></section>`) : ""}
-      ${next ? `<details class="demo"><summary>Demo controls</summary><p style="margin:8px 0">GreenFed staff move orders along in the employee view. Use this to see the next step.</p><button class="btn btn--ghost btn--sm" data-act="advance" data-id="${o.id}">Move to "${LABEL[next]}"</button></details>` : ""}
+
     </div></div>`,
     };
   };
@@ -1448,7 +1436,7 @@
       }
       ${r === "user" ? `<li><a href="#/family">${ic("users")}<span class="grow"><b>Family members</b><small>${S.members.length - 1} added · add husband, wife or kids</small></span>${ic("chev-right")}</a></li><li><a href="#/health">${ic("clipboard")}<span class="grow"><b>My health record</b><small>Allergies, diagnoses, reports</small></span>${ic("chev-right")}</a></li>` : ""}
       ${pp("notify", "bell", "Notification", "Email and app alerts", `${tog("email", "Email", "Meal plan delivery and order updates")}${tog("push", "In-app", "Every stage of your orders")}${tog("community", "Community", "Replies and mentions")}${tog("promos", "Offers", "New plans and grocery discounts")}`)}
-      ${pp("account", "lock", "Account", "Email, password, delete account", `<dl class="kv"><div><dt>Email</dt><dd>${esc(u.email)}</dd></div><div><dt>Status</dt><dd>${chip(u.status)}</dd></div></dl><a class="btn btn--line btn--sm" href="#/forgot" data-act="logout-reset">Change password</a>`)}
+      ${pp("account", "lock", "Account", "Email, password, delete account", `<dl class="kv"><div><dt>Email</dt><dd>${esc(u.email)}</dd></div><div><dt>Status</dt><dd>${chip(u.status)}</dd></div></dl><a class="btn btn--line btn--sm" href="${esc(RH.url("account/index.html"))}">Email, password and roles</a>`)}
       <li><div class="toggle-row" style="padding:14px 4px;border-bottom:1px solid var(--line)"><div class="row">${ic("moon")}<b>Dark mode</b></div><label class="switch"><input type="checkbox" data-act="pref" data-k="dark" ${S.prefs.dark ? "checked" : ""} aria-label="Dark mode"><span></span></label></div></li>
       <li><button class="danger" data-act="logout">${ic("logout")}<span class="grow"><b>Log out</b></span></button></li></ul></section>
       <aside class="stack"><section class="card prof"><span class="ava ava--lg">${initials(name)}</span><h2>${esc(name)}</h2><p class="mute">${esc(r === "employee" ? EMP[S.emp.type].name : r === "admin" ? "Administrator" : u.email)}</p>${r === "user" ? `<dl class="facts"><div><dt>Age</dt><dd>${S.members[0].age}</dd></div><div><dt>Height</dt><dd>${u.height} cm</dd></div><div><dt>Goal</dt><dd>${esc(u.goal)}</dd></div></dl>` : ""}</section></aside></div>`,
@@ -1522,11 +1510,7 @@
     return {
       title: `My work · ${e.name}`,
       html: `<div class="cols"><div class="stack">
-      <label class="rolebox card" style="padding:14px"><small>Employee type (demo)</small><select class="inp" data-act="etype">${Object.entries(
-        EMP,
-      )
-        .map(([kk, x]) => `<option value="${kk}" ${kk === t ? "selected" : ""}>${x.name} · ${x.who}</option>`)
-        .join("")}</select></label>
+      <div class="card" style="padding:14px"><small class="mute">Your role</small><b>${esc(e.name)}</b></div>
       ${actHtml}
       ${
         health
@@ -1610,20 +1594,9 @@
   };
   V.users = () => ({
     title: "Users",
-    html: `<section class="card tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Change status</th></tr></thead><tbody>
-    ${S.users
-      .map(
-        (u, i) =>
-          `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${chip(u.status)}</td><td><select data-act="ustatus" data-i="${i}" aria-label="Status for ${esc(u.name)}">${[
-            ["ACTIVE", "Active / re-activate"],
-            ["WARNING", "Warning"],
-            ["BANNED", "Ban"],
-            ["DEACTIVATED", "Deactivate"],
-          ]
-            .map(([v, n]) => `<option value="${v}" ${u.status === v ? "selected" : ""}>${n}</option>`)
-            .join("")}</select></td></tr>`,
-      )
-      .join("")}</tbody></table></section>`,
+    html: `<section class="card stack" style="max-width:640px"><h2 class="h" style="margin:0">Users and approvals</h2>
+      <p class="mute">Sign-ups, staff approvals, invitations and account status (active, warning, suspended, banned, deactivated) are managed in the Rehohub admin console, so the same rules apply to every product.</p>
+      <a class="btn" href="${esc(RH.url("account/admin.html"))}">Open the admin console</a></section>`,
   });
   V.conflicts = () => ({
     title: "Conflicts",
@@ -1668,12 +1641,6 @@
   const AUTH = {
     welcome: A.welcome,
     start: A.start,
-    login: A.login,
-    signup: A.signup,
-    verify: A.verify,
-    forgot: A.forgot,
-    code: A.code,
-    reset: A.reset,
     setup: A.setup,
   };
   const ROUTES = [
@@ -1710,16 +1677,26 @@
     const [path, qs] = raw.split("?");
     const q = new URLSearchParams(qs || "");
     const key = path.replace(/^\//, "");
+    if (["login", "signup", "verify", "forgot", "code", "reset"].includes(key)) {
+      location.href =
+        key === "signup"
+          ? RH.url("account/register.html?product=greenfed&role=customer")
+          : key === "forgot"
+            ? RH.url("account/forgot.html")
+            : RH.loginUrl(location.pathname);
+      return;
+    }
     if (AUTH[key]) {
-      if (S.session && key !== "setup" && key !== "verify") return go(HOME[role()]);
+      if (S.session && key !== "setup") return go(HOME[role()]);
       view().innerHTML = AUTH[key](q);
       document.title = "GreenFed";
       return;
     }
     if (!S.session) {
-      S.after = "#" + raw;
-      save();
-      return go(S.seenIntro ? "#/login" : "#/welcome");
+      try {
+        sessionStorage.setItem("gf-after", "#" + raw);
+      } catch (e) {}
+      return go(localStorage.getItem("gf-seen-intro") ? "#/start" : "#/welcome");
     }
     const m = ROUTES.map(([re, fn, r]) => [path.match(re), fn, r]).find((x) => x[0]);
     if (!m) return go(HOME[role()]);
@@ -1742,15 +1719,6 @@
   window.addEventListener("hashchange", render);
 
   // ------------------------------------------------------------ events
-  function login(r) {
-    S.session = { role: r };
-    S.seenIntro = true;
-    const next = S.after;
-    S.after = null;
-    save();
-    const ok = next && ROUTES.some(([re, , need]) => next.slice(1).split("?")[0].match(re) && (!need || need === r));
-    go(ok ? next : HOME[r]);
-  }
   const advance = (o) => {
     const flow = o.kind === "plan" ? PLAN_FLOW : GROC_FLOW;
     const nx = flow[flow.indexOf(o.status) + 1];
@@ -1775,28 +1743,18 @@
     if (!b) return;
     const a = b.dataset.act,
       id = b.dataset.id;
-    if (["role", "as", "pref", "etype", "ustatus", "gsearch", "csearch", "hsearch"].includes(a)) return;
+    if (["role", "pref", "gsearch", "csearch", "hsearch"].includes(a)) return;
     if (a === "skip") {
-      S.seenIntro = true;
-      save();
+      try {
+        localStorage.setItem("gf-seen-intro", "1");
+      } catch (e) {}
       go("#/start");
-    }
-    if (a === "social") toast(`${b.dataset.n} sign-in will be available once accounts are connected.`);
-    if (a === "demo") login(b.dataset.role);
-    if (a === "resend") toast("Sent again (demo)");
-    if (a === "verified") {
-      save();
-      go("#/setup");
     }
     if (a === "panel") {
       const open = b.getAttribute("aria-expanded") === "true";
       go("#/profile" + (open ? "" : "?open=" + b.dataset.p));
     }
-    if (a === "logout" || a === "logout-reset") {
-      S.session = null;
-      save();
-      if (a === "logout") go("#/login");
-    }
+    if (a === "logout") RH.logout(RH.url("account/login.html"));
     if (a === "fav") {
       S.favs = S.favs.includes(id) ? S.favs.filter((x) => x !== id) : [...S.favs, id];
       save();
@@ -1993,29 +1951,16 @@
   document.addEventListener("change", (e) => {
     const t = e.target,
       a = t.dataset.act;
-    if (a === "role") {
+    if (a === "role" && MYROLES.includes(t.value)) {
       S.session = { role: t.value };
       save();
       go(HOME[t.value]);
     }
-    if (a === "as") go("#/signup?as=" + t.value);
     if (a === "pref") {
       S.prefs[t.dataset.k] = t.checked;
       save();
       document.body.classList.toggle("dark", !!S.prefs.dark);
       toast("Saved");
-    }
-    if (a === "etype") {
-      S.emp.type = t.value;
-      save();
-      render();
-    }
-    if (a === "ustatus") {
-      S.users[+t.dataset.i].status = t.value;
-      if (+t.dataset.i === 0) S.user.status = t.value;
-      save();
-      render();
-      toast("Status updated");
     }
   });
   document.addEventListener("input", (e) => {
@@ -2051,57 +1996,6 @@
 
   const vals = (f, n) => $$(`[name=${n}]:checked`, f).map((x) => x.value);
   const FORMS = {
-    login(f) {
-      if (!f.email.value.trim()) return err(f, "Enter your username or email.");
-      if (f.pw.value.length < 6) return err(f, "Enter your password (6+ characters).");
-      login("user");
-    },
-    signup(f) {
-      const as = f.dataset.as;
-      if (f.name.value.trim().length < 2) return err(f, "Enter your full name.");
-      if (!/^\S+@\S+\.\S+$/.test(f.email.value) && f.email.value.replace(/\D/g, "").length < 10)
-        return err(f, "Enter a valid email or phone number.");
-      if (as === "employee" && f.code.value.trim().toUpperCase() !== "GF-STAFF-2026")
-        return err(f, "That employee code isn't valid. Demo code: GF-STAFF-2026.");
-      if (as === "admin" && f.code.value.trim().toUpperCase() !== "GF-ADMIN-2026")
-        return err(f, "That admin code isn't valid. Demo code: GF-ADMIN-2026.");
-      if (f.pw.value.length < 8) return err(f, "Password must be at least 8 characters.");
-      if (f.pw.value !== f.pw2.value) return err(f, "Passwords don't match.");
-      if (!f.terms.checked) return err(f, "Please accept the terms of service.");
-      if (as === "user") {
-        S.user.name = f.name.value.trim();
-        S.members[0].name = S.user.name;
-        if (/@/.test(f.email.value)) S.user.email = f.email.value.trim();
-        S.pending = { email: S.user.email };
-        S.session = { role: "user" };
-        S.seenIntro = true;
-        save();
-        go("#/verify");
-        return;
-      }
-      if (as === "employee") S.emp.type = f.etype.value;
-      toast("Account created");
-      login(as);
-    },
-    forgot(f) {
-      if (!/^\S+@\S+\.\S+$/.test(f.email.value)) return err(f, "Enter a valid email address.");
-      go("#/code");
-    },
-    code(f) {
-      if (
-        $$("[data-otp]", f)
-          .map((x) => x.value)
-          .join("") !== "1234"
-      )
-        return err(f, "That code isn't right. Demo code: 1234.");
-      go("#/reset");
-    },
-    reset(f) {
-      if (f.pw.value.length < 8) return err(f, "Use at least 8 characters.");
-      if (f.pw.value !== f.pw2.value) return err(f, "Passwords don't match.");
-      toast("Password updated");
-      go("#/login");
-    },
     setup(f) {
       const me = S.members[0];
       me.age = +f.age.value || me.age;
@@ -2371,6 +2265,52 @@
     FORMS[f.dataset.form](f);
   });
 
-  if (S.prefs.dark) document.body.classList.add("dark");
-  render();
+  async function boot() {
+    let s;
+    try {
+      s = await RH.session(true);
+    } catch (e) {
+      view().innerHTML = authShell(
+        `<h1>Can't reach GreenFed</h1><p>${esc(e.message)}</p><a class="btn btn--block" href="">Try again</a>`,
+      );
+      return;
+    }
+    ACCOUNT = s.user;
+    if (!ACCOUNT) {
+      S.session = null;
+      return render();
+    }
+    MYROLES = RH.rolesIn(ACCOUNT, "greenfed")
+      .map((r) => ROLEMAP[r])
+      .filter(Boolean);
+    if (!MYROLES.length) {
+      await RH.guard("greenfed", ["customer", "employee"]); // explains pending / not added yet
+      return;
+    }
+    loadFor(ACCOUNT);
+    S.user.name = ACCOUNT.full_name;
+    S.user.email = ACCOUNT.email;
+    if (ACCOUNT.phone) S.user.phone = ACCOUNT.phone;
+    S.members[0].name = ACCOUNT.full_name;
+    const emp = ACCOUNT.memberships.find(
+      (m) => m.product === "greenfed" && m.role === "employee" && m.status === "approved",
+    );
+    if (emp && EMPMAP[emp.details.employee_type]) {
+      S.emp.type = EMPMAP[emp.details.employee_type];
+      EMP[S.emp.type].who = ACCOUNT.full_name;
+    }
+    const keep = S.session && MYROLES.includes(S.session.role) ? S.session.role : MYROLES[0];
+    S.session = { role: keep };
+    save();
+    if (S.prefs.dark) document.body.classList.add("dark");
+    let after = null;
+    try {
+      after = sessionStorage.getItem("gf-after");
+      sessionStorage.removeItem("gf-after");
+    } catch (e) {}
+    if (FRESH && keep === "user") return go("#/setup");
+    if (after && !/^#\/(welcome|start|login|signup|setup)/.test(after)) return go(after);
+    render();
+  }
+  boot();
 })();

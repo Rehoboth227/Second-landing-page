@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Admin console | Rehohub</title>
+    <meta name="description" content="Admin console" />
+    <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/account.css" />
+  </head>
+  <body data-page="admin">
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+      <div class="top__in">
+        <a class="logo" href="../index.html" aria-label="Rehohub home"
+          ><svg viewBox="0 0 80 80" aria-hidden="true">
+            <rect width="80" height="80" rx="12" fill="#1760BA" />
+            <g transform="translate(40 40) scale(0.95) translate(-126 -81)" fill="#fff">
+              <path
+                fill-rule="evenodd"
+                d="M118.56 107.61c5.7-12.04 13.1-.34 18.93 0h13.29l-12.98-20.54c5.73-2.44 9.47-8.32 9.47-15.12 0-4.96-1.76-9.09-5.35-12.45-3.51-3.43-7.79-5.11-12.75-5.11h-22.3c24.96 12.14-.55 33.86 0 53.22z"
+              />
+              <circle cx="106.09" cy="69.29" r="4.87" />
+            </g></svg
+          ><span>Rehohub<span class="dot">.</span></span></a
+        >
+        <nav aria-label="Account">
+          <a href="index.html">My account</a
+          ><a href="admin.html" data-admin-link hidden aria-current="page">Admin console</a
+          ><button class="btn btn--ghost btn--sm" type="button" data-logout>Sign out</button>
+        </nav>
+      </div>
+    </header>
+    <main class="page" id="main">
+      <div>
+        <h1>Admin console</h1>
+        <p class="mute" data-scope></p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Admin sections">
+        <button role="tab" data-tab="apps" aria-selected="true">
+          Applications<span class="n" data-pending-n hidden>0</span>
+        </button>
+        <button role="tab" data-tab="users" aria-selected="false" data-super hidden>Users</button>
+        <button role="tab" data-tab="invites" aria-selected="false">Invitations</button>
+        <button role="tab" data-tab="audit" aria-selected="false" data-super hidden>Activity log</button>
+      </div>
+      <section class="card" data-panel="apps" aria-label="Applications">
+        <form id="filters" class="filters" role="search">
+          <select class="inp" id="f-status" aria-label="Status">
+            <option value="pending">Waiting for review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="suspended">Suspended</option>
+            <option value="all">All</option>
+          </select>
+          <select class="inp" id="f-product" aria-label="Product"></select>
+          <input
+            class="inp"
+            id="f-q"
+            type="search"
+            placeholder="Search name or email"
+            aria-label="Search name or email"
+          />
+          <button class="btn btn--sm" type="submit">Search</button>
+        </form>
+        <div id="apps" style="display: grid; gap: 12px"></div>
+      </section>
+      <section class="card" data-panel="users" hidden aria-label="Users">
+        <form id="ufilters" class="filters" role="search">
+          <input
+            class="inp"
+            id="u-q"
+            type="search"
+            placeholder="Search name, email or phone"
+            aria-label="Search users"
+          />
+          <select class="inp" id="u-status" aria-label="Account status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="pending_verification">Email not confirmed</option>
+            <option value="warning">Warning</option>
+            <option value="suspended">Suspended</option>
+            <option value="banned">Banned</option>
+            <option value="deactivated">Deactivated</option>
+          </select>
+          <button class="btn btn--sm" type="submit">Search</button>
+        </form>
+        <p class="mute" style="margin: 0; font-size: 14px">
+          Suspending, banning or deactivating an account signs the person out everywhere straight away. Set it back to
+          Active to re-activate.
+        </p>
+        <div id="users"></div>
+      </section>
+      <div class="cols" data-panel="invites" hidden>
+        <section class="card" aria-labelledby="h-inv">
+          <h2 id="h-inv">Send an invitation</h2>
+          <p class="mute" style="margin: 0">
+            Invited people skip the approval queue. Administrators can only be added this way.
+          </p>
+          <form id="invite" novalidate>
+            <label class="field"
+              ><span>Email</span><input class="inp" name="email" type="email" required maxlength="190"
+            /></label>
+            <div class="grid2">
+              <label class="field"
+                ><span>Product</span
+                ><select class="inp" name="product"></select></label
+              ><label class="field"
+                ><span>Role</span
+                ><select class="inp" name="role"></select
+              ></label>
+            </div>
+            <div data-inv-details style="display: grid; gap: 14px"></div>
+            <div data-msg hidden tabindex="-1"></div>
+            <button class="btn" type="submit">Send invitation</button>
+          </form>
+        </section>
+        <section class="card" aria-labelledby="h-invs">
+          <h2 id="h-invs">Recent invitations</h2>
+          <div id="invites"><p class="mute">Loading…</p></div>
+        </section>
+      </div>
+      <section class="card" data-panel="audit" hidden aria-label="Activity log">
+        <p class="mute" style="margin: 0">
+          Every sign-up, sign-in, approval, status change and invitation, newest first.
+        </p>
+        <div id="audit"></div>
+      </section>
+      <dialog id="decide" aria-labelledby="dlg-t">
+        <form novalidate method="dialog">
+          <h2 id="dlg-t" data-dlg-title style="font-size: 20px">Confirm</h2>
+          <input type="hidden" name="id_" /><input type="hidden" name="decision" />
+          <label class="field"
+            ><span data-note-label>Note</span><textarea class="inp" name="note" maxlength="500"></textarea>
+          </label>
+          <div data-msg hidden tabindex="-1"></div>
+          <div class="row">
+            <button class="btn" type="submit">Confirm</button
+            ><button class="btn btn--ghost" type="button" data-cancel>Cancel</button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+    <script src="../assets/js/rh-auth.js"></script>
+    <script src="../assets/js/account.js"></script>
+  </body>
+</html>

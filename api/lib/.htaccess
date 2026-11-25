@@ -1,0 +1,2 @@
+# Library code is included by api/index.php only; it is never opened directly.
+Require all denied

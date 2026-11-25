@@ -1,7 +1,9 @@
 # Rehohub — Website
 
-A static, responsive website for **Rehohub**, written in plain **HTML, CSS and JavaScript**.
-There is no build step, framework or server code: every page is a finished `.html` file you can edit directly.
+A responsive website for **Rehohub**, written in plain **HTML, CSS and JavaScript**, with a small
+**PHP + MySQL** account system (`api/`) shared by all products. There is no build step or framework:
+every page is a finished `.html` file you can edit directly. To put the account system live, follow
+**[DEPLOY.md](DEPLOY.md)**.
 
 ## Structure
 
@@ -24,6 +26,15 @@ products/airise/               AiRise HR and employability site:
   dashboard.html                 learner dashboard (app layout)
   learn.html                     course player, e.g. learn.html?course=adaptability
   trainer.html                   trainer studio: course list and four-step course upload
+account/                       Rehohub accounts: login, register, verify, forgot, reset, invite,
+                               setup (first admin, one time), index (My account), admin (console)
+api/                           Account API (PHP 8.1+): index.php (all routes), lib/core.php,
+                               config.sample.php (copy outside public_html; see DEPLOY.md)
+database/schema.sql            MySQL tables, imported once in phpMyAdmin
+assets/js/rh-auth.js           Browser helper: talks to /api, role checks, page guard for apps
+assets/js/account.js           Logic for the account pages and admin console
+assets/css/account.css         Styles for the account pages
+DEPLOY.md                      Step-by-step cPanel setup for the account system
 assets/css/styles.css          All styles (one file, design tokens at the top)
 assets/js/main.js              Shared interactions: menu, scroll reveal, counters
 assets/css/aimove-app.css      AiMove web app styles (light and dark)
@@ -77,11 +88,13 @@ Connecting a backend (accounts, file storage, review queue) is the next step bef
 screens and the AiMove Android app: sign-up and login (with OTP reset), home, send a package with an upfront
 fare, review and payment, live tracking with a PIN, book a rider, wallet and cards, chat, notifications and
 profile; a rider view (accept jobs, pickup, transit, PIN proof of delivery, earnings and payout); and an
-operations view (shipments, rider assignment, fleet GPS, API sandbox and logs). A "Viewing as" switch moves
-between the three roles, which share the same data.
+operations view (shipments, rider assignment, fleet GPS, API sandbox and logs). Which views a person sees
+comes from their Rehohub account (customer, approved rider, AiMove or super administrator); someone with
+several roles can switch between their own roles only.
 
-It is front-end only: data is saved in the browser (localStorage), payments, maps, calls and sign-in
-providers are simulated, and riders, distances and GPS positions are sample data until a backend is connected.
+Sign-in and roles are real (see "Accounts and roles"). Deliveries, wallet and payouts are still saved per
+account on the device; payments, maps and calls are simulated, and other riders, distances and GPS positions
+are sample data until bookings are connected to the database.
 
 ## GreenFed web app
 
@@ -102,9 +115,25 @@ notifications) and the GreenFed requirements:
   ban, deactivate), resolve conflicts (late delivery: waive the next delivery; poor quality: recall and
   resupply), pay staff and handle complaints.
 
-It is front-end only: data is saved in the browser (localStorage), payments and sign-in providers are
-simulated, and prices (in US dollars, as in the design; $37.50 per person per week for meal plans) and all
-people, orders and records are sample data until a backend is connected.
+Sign-in and roles are real (see "Accounts and roles"); an employee's type comes from their approved
+application. Meal plans, orders and records are still saved per account on the device, card payments are not
+connected, and prices (US dollars, as in the design; $37.50 per person per week for meal plans) and the
+sample orders in staff queues are placeholders until ordering is connected to the database.
+
+## Accounts and roles
+
+One Rehohub account works for every product. Customers are approved automatically once their
+email is confirmed; riders, merchants, GreenFed employees and AiRise trainers wait for an
+administrator; administrators are invite-only (the very first one is created once with
+`account/setup.html`). The server (`api/`) decides who may use each side of each app; the pages
+only show the right screens. AiMove and GreenFed use it for sign-in and roles, and the AiRise
+dashboard, course player and trainer studio require an approved AiRise role. Product data
+(orders, plans, progress) is still saved per account on the device until each product is
+connected to the database. See DEPLOY.md for the full permission table.
+
+Local testing needs PHP and MySQL: point the `REHOHUB_CONFIG` environment variable at a config
+file with `'env' => 'development'` (which also allows `'mail' => ['transport' => 'log']` to write
+emails to a file instead of sending them).
 
 ## Brand application
 
@@ -121,7 +150,7 @@ and the navy and gold of AiRise and Rheti (Rheti uses Poppins, per its brand gui
 
 ## Before launch
 
-- The web-app and App Store / Google Play links for AiPay, AiMove, AiRise and GreenFed are placeholders.
+- The App Store / Google Play links are placeholders. AiPay buttons open account sign-up until its web app exists.
 - AiMove, AiRise and Rheti have no product email yet and use info@rehohub.com.
 - The AiRise assessment page publishes only the structure and rules of the assessments.
   Keep answer keys, model answers and marking guides out of this public site.

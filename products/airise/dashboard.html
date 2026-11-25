@@ -532,6 +532,10 @@
         </div>
       </aside>
     </div>
+    <script src="../../assets/js/rh-auth.js"></script>
+    <script>
+      RH.guard("airise", ["customer", "trainer"]).catch(() => {});
+    </script>
     <script src="../../assets/js/airise-app.js"></script>
   </body>
 </html>
