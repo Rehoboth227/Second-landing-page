@@ -52,6 +52,10 @@ h3 {
   outline: 3px solid var(--blue-500);
   outline-offset: 2px;
 }
+/* headings that receive focus for screen readers don't need a visible box */
+[tabindex="-1"]:focus {
+  outline: none;
+}
 .skip {
   position: absolute;
   left: -999px;
@@ -171,6 +175,7 @@ form {
 .field {
   display: grid;
   gap: 6px;
+  align-content: start;
 }
 .field > span,
 legend {
