@@ -18,13 +18,6 @@
   const OPTIONS = [
     { product: "aipay", role: "customer", title: "Shop on AiPay", sub: "Buy from stores near you" },
     { product: "aipay", role: "merchant", title: "Sell on AiPay", sub: "Open your store", review: true },
-    {
-      product: "aipay",
-      role: "gateway",
-      title: "Take payments with AiPay",
-      sub: "Request a payment system",
-      review: true,
-    },
     { product: "aimove", role: "customer", title: "Send with AiMove", sub: "Book deliveries and track them" },
     { product: "aimove", role: "rider", title: "Ride for AiMove", sub: "Deliver packages and earn", review: true },
     { product: "greenfed", role: "customer", title: "Eat well with GreenFed", sub: "Meal plans, groceries, community" },
@@ -39,15 +32,9 @@
     { product: "airise", role: "trainer", title: "Teach on AiRise", sub: "Upload and run courses", review: true },
   ];
   const DETAILS = {
-    gateway: [
-      ["business_name", "Business name", "text", true],
-      ["business_category", "Industry", "text", false, "e.g. Education, retail, hospitality"],
-      ["website", "Website", "text", false, "Where you will take payments"],
-      ["about", "About your business", "text", false],
-    ],
     merchant: [
       ["business_name", "Business name", "text", true],
-      ["business_address", "Business address", "text", false],
+      ["business_address", "Business address", "text", true],
       ["business_category", "What do you sell?", "text", false, "e.g. Food & drinks, fashion"],
       ["cac_number", "CAC registration number", "text", false, "Optional, but speeds up approval"],
     ],
@@ -127,15 +114,24 @@
         .map((x) => [x.name.slice(2), x.value.trim()]),
     );
 
+  // Two sides: accounts people can use straight away, and accounts our team approves first.
   function roleChooser(name, selected, exclude = []) {
-    return `<div class="roles" role="radiogroup">${OPTIONS.filter((o) => !exclude.includes(o.product + ":" + o.role))
-      .map(
-        (o) =>
-          `<label class="role"><input type="radio" name="${name}" value="${o.product}:${o.role}" ${selected === o.product + ":" + o.role ? "checked" : ""} required><span><b>${o.title}</b><small>${o.sub}</small>${
-            o.review ? "<em>Needs approval</em>" : ""
-          }</span></label>`,
-      )
-      .join("")}</div>`;
+    const opts = OPTIONS.filter((o) => !exclude.includes(o.product + ":" + o.role));
+    const item = (o) =>
+      `<label class="role"><input type="radio" name="${name}" value="${o.product}:${o.role}" ${selected === o.product + ":" + o.role ? "checked" : ""} required><span><b>${o.title}</b><small>${o.sub}</small></span></label>`;
+    const col = (title, sub, list) =>
+      list.length
+        ? `<div class="roles__col"><p class="roles__h">${title}<small>${sub}</small></p>${list.map(item).join("")}</div>`
+        : "";
+    return `<div class="roles" role="radiogroup" aria-label="What you are signing up for">${col(
+      "For users",
+      "Ready as soon as you confirm your email",
+      opts.filter((o) => !o.review),
+    )}${col(
+      "Needs approval",
+      "Our team reviews these first",
+      opts.filter((o) => o.review),
+    )}</div>`;
   }
 
   // ---------------------------------------------------------------- form helpers
@@ -732,7 +728,7 @@
         p === "rehohub"
           ? ["admin"]
           : {
-              aipay: ["customer", "merchant", "gateway"],
+              aipay: ["customer", "merchant"],
               aimove: ["customer", "rider"],
               greenfed: ["customer", "employee"],
               airise: ["customer", "trainer"],

@@ -13,12 +13,12 @@ services/<name>.html           One page per subsidiary (11): Rheti, RehoCon, Reh
                                RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive, Havibank
 services/havibank.html         Havibank, the digital financial institution: the AiPay design plus the
                                roadmap (AiPay live; payments and banking in progress)
-products/aipay.html            AiPay web app (from the "Ai Pay Project" Figma): Join AiPay Today, sign up,
-                               business details, terms, login, forgot password with emailed code, reset;
-                               payment system users: dashboard, payment history, details and receipts,
-                               notifications, profile, settings, points card (VIP gold, VVIP navy,
-                               VVIP Black), payment link checkout (#/pay/<code>, test mode);
-                               merchants: dashboard, sales, products
+products/aipay.html            AiPay web app (from the "Ai Pay Project" Figma). Sign-in, sign-up and
+                               approvals use the shared Rehohub account pages and admin console, like
+                               AiMove, GreenFed and AiRise. Shoppers and merchants: dashboard, payment
+                               history or sales, products, details and receipts, notifications, profile,
+                               settings, points card (VIP gold, VVIP navy, VVIP Black). Taking payments
+                               for other businesses ("payment system") is not offered yet
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
 services/rheti/                Rheti service site (the employability website, moved here from AiRise):

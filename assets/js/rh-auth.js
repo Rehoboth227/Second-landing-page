@@ -11,7 +11,6 @@
     customer: "Customer",
     rider: "Rider",
     merchant: "Merchant",
-    gateway: "Payment system user",
     employee: "Employee",
     trainer: "Trainer",
     admin: "Administrator",
@@ -20,7 +19,6 @@
   const ROLE_LABEL = {
     "aipay:customer": "Shopper",
     "aipay:merchant": "Merchant",
-    "aipay:gateway": "Payment system",
     "aimove:customer": "Customer",
     "aimove:rider": "Rider",
     "greenfed:customer": "Customer",
@@ -32,10 +30,10 @@
   const OPEN = {
     "aipay:customer": "products/aipay.html",
     "aipay:merchant": "products/aipay.html",
-    "aipay:gateway": "products/aipay.html",
     "aimove:customer": "products/aimove.html",
     "aimove:rider": "products/aimove.html",
     "aimove:admin": "products/aimove.html",
+    "aipay:admin": "products/aipay.html",
     "greenfed:customer": "products/greenfed.html",
     "greenfed:employee": "products/greenfed.html",
     "greenfed:admin": "products/greenfed.html",

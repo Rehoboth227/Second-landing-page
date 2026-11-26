@@ -87,26 +87,14 @@ refuses to run over plain `http://`, to protect passwords.
 If anything fails, cPanel → **Errors** (or `public_html/error_log`) shows what went wrong. Error
 messages never include passwords.
 
-## Updating a site that is already live (AiPay app, November 2026)
-
-If your database was created before the AiPay app, run this once, or AiPay "Request a payment
-system" sign-ups will fail:
-
-1. cPanel → **phpMyAdmin** → click your Rehohub database on the left → **SQL** tab.
-2. Paste the contents of `database/migrations-001-aipay-gateway.sql` and press **Go**.
-
-It only adds the new role to the list of allowed roles; no data changes.
-
----
-
 ## Who can do what
 
-| Person                                                                   | How they get access                                                                       | What they can see and do                                              |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Customer (shopper, sender, GreenFed customer, AiRise learner)            | Signs up → confirms email → **approved automatically**                                    | Their own account and the customer side of each product they joined   |
-| Rider, merchant, AiPay payment system, GreenFed employee, AiRise trainer | Signs up or adds the role in My account → confirms email → **waits for an administrator** | Nothing on that side until approved; then only that side              |
-| Product administrator (e.g. GreenFed admin)                              | **Invitation only**, sent by a super administrator                                        | Applications, invitations and approvals **for that product only**     |
-| Super administrator                                                      | The one-time setup (you), then **invitation only**                                        | Everything: all applications, all users, account status, activity log |
+| Person                                                        | How they get access                                                                       | What they can see and do                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Customer (shopper, sender, GreenFed customer, AiRise learner) | Signs up → confirms email → **approved automatically**                                    | Their own account and the customer side of each product they joined   |
+| Rider, merchant, GreenFed employee, AiRise trainer            | Signs up or adds the role in My account → confirms email → **waits for an administrator** | Nothing on that side until approved; then only that side              |
+| Product administrator (e.g. GreenFed admin)                   | **Invitation only**, sent by a super administrator                                        | Applications, invitations and approvals **for that product only**     |
+| Super administrator                                           | The one-time setup (you), then **invitation only**                                        | Everything: all applications, all users, account status, activity log |
 
 - Account status (Admin console → **Users**): **active, warning, suspended, banned, deactivated**.
   Suspending, banning or deactivating signs the person out **everywhere immediately**.
@@ -125,8 +113,6 @@ It only adds the new role to the list of allowed roles; no data changes.
   of `api/index.php`.
 - Passwords are stored only as secure hashes (PHP `password_hash`). Email, reset and invitation
   links are single-use, expire, and only their fingerprint (SHA-256) is stored.
-- AiPay's password reset code (6 digits, emailed) expires in 10 minutes, works once, and allows
-  5 tries an hour per email address.
 - Five wrong passwords lock an account for 15 minutes; sign-up, sign-in and reset are rate-limited.
 - Sessions use secure, HttpOnly cookies; every change needs a per-session security token (CSRF).
 - Every database query uses prepared statements; application details are checked against a fixed

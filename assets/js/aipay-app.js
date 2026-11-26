@@ -90,20 +90,7 @@
   const INTENTS = {
     store: { role: "merchant", label: "Create a store" },
     buy: { role: "customer", label: "Buy high classic products" },
-    pay: { role: "gateway", label: "Request a payment system" },
   };
-  const INDUSTRIES = [
-    "Retail",
-    "Fashion and beauty",
-    "Food and drinks",
-    "Electronics and gadgets",
-    "Education",
-    "Health",
-    "Hospitality and events",
-    "Logistics",
-    "Professional services",
-    "Other",
-  ];
   const BANKS = [
     "Access Bank",
     "Fidelity Bank",
@@ -159,7 +146,6 @@
   let SESSION = null; // { user }
   let ROLE = null; // active AiPay side: gateway | merchant | customer
   let D = null; // this account's AiPay data on this device
-  const F = { intent: "", applying: false }; // sign-up in progress (kept in memory only)
   const KEY = (uid) => "aipay-app-v1:" + uid;
   const LINKS = "aipay-links-v1"; // payment-link code -> { uid, business }
 
@@ -189,7 +175,7 @@
 
   function aipayRoles(user) {
     const r = RH.rolesIn(user, "aipay");
-    if (r.includes("admin")) return ["gateway", "merchant", "customer"];
+    if (r.includes("admin")) return ["merchant", "customer"];
     return ["gateway", "merchant", "customer"].filter((x) => r.includes(x));
   }
   const membership = (role) => RH.memberships(SESSION.user, "aipay").find((m) => m.role === role) || null;
@@ -327,19 +313,10 @@
       btn.innerHTML = label;
     }
   }
-  const pwField = (name, label, ph, auto) =>
-    `<label class="field"><span>${label}</span><div class="pw"><input type="password" name="${name}" placeholder="${ph}" autocomplete="${auto}" required /><button type="button" data-eye aria-label="Show password">${ic("eye")}</button></div></label>`;
-  document.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-eye]");
-    if (!b) return;
-    const inp = b.previousElementSibling;
-    const show = inp.type === "password";
-    inp.type = show ? "text" : "password";
-    b.setAttribute("aria-label", show ? "Hide password" : "Show password");
-    b.innerHTML = ic(show ? "eye-off" : "eye");
-  });
-
-  // ------------------------------------------------------------ auth layout
+  // ------------------------------------------------------------ signed out: shared Rehohub sign-in
+  // AiPay has no sign-in of its own: like AiMove, GreenFed and AiRise it uses the Rehohub account
+  // pages (account/login.html, account/register.html), and the admin console approves stores and
+  // payment systems.
   function authPage({ top = "", body }) {
     app.innerHTML = `<div class="auth">
       <aside class="auth__art"><a class="logo logo--light" href="../index.html" aria-label="Rehohub home">${logo(true)}</a></aside>
@@ -350,365 +327,38 @@
       </main></div>`;
     window.scrollTo(0, 0);
   }
-  const haveAccount = `<span class="grow"></span><span>Already have an account? <a class="link" href="#/login">Sign in</a></span>`;
-  const noAccount = `<span class="grow"></span><span>Don't have an account? <a class="link" href="#/join">Sign Up</a></span>`;
-  const backTo = (h, extra = "") => `<a class="back" href="${h}">${ic("back")}Back</a>${extra}`;
-
-  // Join AiPay Today: what do you want to do?
-  function viewJoin() {
-    const applying = !!(SESSION && SESSION.user);
-    F.applying = applying;
+  let intent = "";
+  function viewWelcome(note = "") {
+    const login = RH.loginUrl(location.pathname + "#/dashboard");
     authPage({
-      top: applying
-        ? `<span class="grow"></span><span>Signed in as ${esc(SESSION.user.email)} · <button class="link" type="button" data-logout>Sign out</button></span>`
-        : haveAccount,
-      body: `<h1>${applying ? "Add AiPay to your account" : "Join AiPay Today"}</h1>
-        <p>Secure payment easily anytime from anywhere, create an e-store in just simple steps, buy high quality products, all on AiPay.</p>
+      top: `<span class="grow"></span><span>Already have an account? <a class="link" href="${esc(login)}">Sign in</a></span>`,
+      body: `<h1>Join AiPay Today</h1>
+        <p>Create an e-store in just simple steps and buy high quality products, all on AiPay. One Rehohub account works for AiPay, AiMove, GreenFed and AiRise.</p>
         <form class="grid" id="join" style="gap:16px" novalidate>
+          ${note ? `<div class="alert" role="alert">${esc(note)}</div>` : ""}
           <div class="q"><h2>You want to?</h2><p>Please select at least one option</p>
             <div class="choices" role="group" aria-label="What you want to do">
               ${Object.entries(INTENTS)
                 .map(
                   ([k, v]) =>
-                    `<button type="button" class="choice" data-intent="${k}" aria-pressed="${F.intent === k}">${v.label}</button>`,
+                    `<button type="button" class="choice" data-intent="${k}" aria-pressed="${intent === k}">${v.label}</button>`,
                 )
                 .join("")}
             </div></div>
           <button class="btn btn--block" type="submit" style="margin-top:28px">Continue</button>
+          <a class="btn btn--line btn--block" href="${esc(login)}">Sign in</a>
         </form>`,
     });
     $$("[data-intent]").forEach((b) =>
       b.addEventListener("click", () => {
-        F.intent = b.dataset.intent;
+        intent = b.dataset.intent;
         $$("[data-intent]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
       }),
     );
-    $("#join").addEventListener("submit", async (e) => {
+    $("#join").addEventListener("submit", (e) => {
       e.preventDefault();
-      if (!F.intent) return showAlert(e.target, "Please choose what you want to do on AiPay.");
-      if (!applying) return go("#/signup");
-      if (F.intent === "buy") {
-        return busy(e.submitter || $("#join .btn"), () => apply(e.target, "customer", {}));
-      }
-      go("#/business");
-    });
-  }
-
-  async function apply(form, role, details) {
-    try {
-      const r = await RH.call("me/memberships", { method: "POST", body: { product: "aipay", role, details } });
-      SESSION = r;
-      toast(r.message || "Done");
-      closeModal();
-      go("#/dashboard");
-    } catch (err) {
-      closeModal();
-      showAlert(form, err.message);
-      fieldErrors(form, err);
-    }
-  }
-
-  function viewSignup() {
-    if (!F.intent) return go("#/join");
-    authPage({
-      top: backTo("#/join", haveAccount),
-      body: `<h1>Sign Up</h1><p>Create an account to start using AiPay</p>
-        <form class="grid" id="signup" style="gap:14px" novalidate>
-          <label class="field"><span>Name</span><input name="full_name" placeholder="Enter full name" autocomplete="name" required value="${esc(F.full_name || "")}" /></label>
-          <label class="field"><span>Email address</span><input name="email" type="email" placeholder="Enter email address" autocomplete="email" required value="${esc(F.email || "")}" /></label>
-          <label class="field"><span>Phone number</span><input name="phone" type="tel" placeholder="Enter phone number" autocomplete="tel" value="${esc(F.phone || "")}" /></label>
-          ${pwField("password", "Create password", "Enter password", "new-password")}
-          ${pwField("confirm", "Confirm password", "Confirm password", "new-password")}
-          <small style="color:var(--mute);font-size:11.5px;margin-top:-6px">At least 10 characters. A short sentence is easy to remember.</small>
-          <button class="btn btn--block" type="submit">Sign up</button>
-        </form>`,
-    });
-    $("#signup").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const v = Object.fromEntries(new FormData(f));
-      const errs = {};
-      if (v.full_name.trim().length < 2) errs.full_name = "Enter your full name.";
-      if (!/^\S+@\S+\.\S+$/.test(v.email)) errs.email = "Enter a valid email address.";
-      if (v.password.length < 10) errs.password = "Use at least 10 characters.";
-      if (v.password !== v.confirm) errs.confirm = "The passwords don't match.";
-      if (Object.keys(errs).length) return fieldErrors(f, { fields: errs });
-      Object.assign(F, {
-        full_name: v.full_name.trim(),
-        email: v.email.trim(),
-        phone: v.phone.trim(),
-        password: v.password,
-      });
-      if (F.intent === "buy") return terms(() => register(f, {}));
-      go("#/business");
-    });
-  }
-
-  function viewBusiness() {
-    const applying = !!(SESSION && SESSION.user);
-    if (!F.intent || (!applying && !F.password)) return go(applying ? "#/join" : "#/signup");
-    authPage({
-      top: backTo(applying ? "#/join" : "#/signup", applying ? "" : haveAccount),
-      body: `<h1>Sign Up</h1><p>Provide your business details</p>
-        <form class="grid" id="biz" style="gap:14px" novalidate>
-          <label class="field"><span>Business name</span><input name="business_name" placeholder="Enter business name" autocomplete="organization" required value="${esc(F.business_name || "")}" /></label>
-          <label class="field"><span>Industry</span><select name="business_category" required><option value="">Select industry</option>${INDUSTRIES.map((x) => `<option ${F.business_category === x ? "selected" : ""}>${x}</option>`).join("")}</select></label>
-          <label class="field"><span>About business</span><textarea name="about" placeholder="Describe your business..." maxlength="600">${esc(F.about || "")}</textarea></label>
-          <button class="btn btn--block" type="submit">Continue</button>
-        </form>`,
-    });
-    $("#biz").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const v = Object.fromEntries(new FormData(f));
-      const errs = {};
-      if (v.business_name.trim().length < 2) errs.business_name = "Enter your business name.";
-      if (!v.business_category) errs.business_category = "Choose your industry.";
-      if (Object.keys(errs).length) return fieldErrors(f, { fields: errs });
-      Object.assign(F, {
-        business_name: v.business_name.trim(),
-        business_category: v.business_category,
-        about: v.about.trim(),
-      });
-      const details = { business_name: F.business_name, business_category: F.business_category, about: F.about };
-      const role = INTENTS[F.intent].role;
-      terms(() => (applying ? apply(f, role, details) : register(f, details)));
-    });
-  }
-
-  function terms(onProceed) {
-    const box = modal(
-      `${xBtn}<h2>Terms &amp; Conditions</h2><p class="sub">Please carefully read through our terms of agreement before you proceed</p>
-      <div class="terms">
-        <p>AiPay is a Rehohub product run by Havibank. Your Rehohub account lets you buy, sell and take payments on AiPay, and use the other Rehohub products with the same sign-in.</p>
-        <p>Give us true details. Stores and payment systems are reviewed by our team before they go live, and we may ask for proof of your business. Don't use AiPay for anything illegal, for goods you don't own, or to mislead buyers.</p>
-        <p>Keep your password private. We will never ask for it, or for your card PIN or CVV, by phone, email or chat. Fees for receiving payments are shown before you accept them. Read the full terms and privacy policy on rehohub.com.</p>
-      </div>
-      <label class="check"><input type="checkbox" id="agree" />I agree with the terms &amp; conditions</label>
-      <button class="btn btn--block" type="button" id="proceed" disabled>Proceed</button>`,
-    );
-    const agree = $("#agree", box),
-      btn = $("#proceed", box);
-    agree.addEventListener("change", () => (btn.disabled = !agree.checked));
-    btn.addEventListener("click", () => busy(btn, onProceed));
-  }
-
-  async function register(form, details) {
-    try {
-      await RH.call("auth/register", {
-        method: "POST",
-        body: {
-          full_name: F.full_name,
-          email: F.email,
-          phone: F.phone,
-          password: F.password,
-          product: "aipay",
-          role: INTENTS[F.intent].role,
-          accept_terms: true,
-          details,
-        },
-      });
-      F.password = "";
-      closeModal();
-      go("#/check");
-    } catch (err) {
-      closeModal();
-      if (err.fields && (err.fields.full_name || err.fields.email || err.fields.password || err.fields.phone)) {
-        F.errorFromServer = err;
-        go("#/signup");
-        setTimeout(() => {
-          const f = $("#signup");
-          if (f) {
-            showAlert(f, err.message);
-            fieldErrors(f, err);
-          }
-        });
-        return;
-      }
-      showAlert(form, err.message);
-      fieldErrors(form, err);
-    }
-  }
-
-  function viewCheck() {
-    authPage({
-      top: backTo("#/login"),
-      body: `<div class="done-ico">${ic("check")}</div><h1 class="center">Check your email</h1>
-        <p class="center">We sent a link to <b>${esc(F.email || "your email")}</b>. Open it to confirm your address and finish creating your AiPay account.${
-          F.intent && F.intent !== "buy" ? " Your business details will then go to our team for review." : ""
-        }</p>
-        <form id="resend" class="grid" novalidate><button class="btn btn--line btn--block" type="submit">Resend the link</button></form>
-        <a class="btn btn--block" href="#/login">Go to login</a>`,
-    });
-    $("#resend").addEventListener("submit", (e) => {
-      e.preventDefault();
-      if (!F.email) return go("#/login");
-      busy(e.submitter || $("#resend .btn"), async () => {
-        try {
-          const r = await RH.call("auth/resend", { method: "POST", body: { email: F.email } });
-          showAlert(e.target, r.message, "info");
-        } catch (err) {
-          showAlert(e.target, err.message);
-        }
-      });
-    });
-  }
-
-  function viewLogin() {
-    authPage({
-      top: noAccount,
-      body: `<h1>Login</h1><p>Login to continue using AiPay</p>
-        <form class="grid" id="login" style="gap:14px" novalidate>
-          <label class="field"><span>Email address</span><input name="email" type="email" placeholder="Enter your email" autocomplete="email" required value="${esc(F.email || "")}" /></label>
-          ${pwField("password", "Password", "Enter your password", "current-password")}
-          <a class="link forgot" href="#/forgot">Forgot password?</a>
-          <button class="btn btn--block" type="submit">Login</button>
-        </form>`,
-    });
-    $("#login").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const v = Object.fromEntries(new FormData(f));
-      busy(e.submitter || $(".btn", f), async () => {
-        try {
-          SESSION = await RH.call("auth/login", {
-            method: "POST",
-            body: { email: v.email.trim(), password: v.password },
-          });
-          F.email = "";
-          go("#/dashboard");
-        } catch (err) {
-          showAlert(f, err.message);
-          if (err.code === "unverified") F.email = v.email.trim();
-        }
-      });
-    });
-  }
-
-  function viewForgot() {
-    authPage({
-      top: backTo("#/login"),
-      body: `<h1>Forgot Password?</h1><p>Enter the email address you used to register. A 6-digit code will be sent to your email. Follow the steps to set up a new password.</p>
-        <form class="grid" id="forgot" style="gap:14px" novalidate>
-          <label class="field"><span>Email address</span><input name="email" type="email" placeholder="Enter your email" autocomplete="email" required value="${esc(F.email || "")}" /></label>
-          <button class="btn btn--block" type="submit" style="margin-top:12px">Send code</button>
-        </form>`,
-    });
-    $("#forgot").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const email = new FormData(f).get("email").trim();
-      if (!/^\S+@\S+\.\S+$/.test(email)) return fieldErrors(f, { fields: { email: "Enter a valid email address." } });
-      busy(e.submitter || $(".btn", f), async () => {
-        try {
-          await RH.call("auth/forgot", { method: "POST", body: { email, method: "code" } });
-          F.email = email;
-          go("#/verify");
-        } catch (err) {
-          showAlert(f, err.message);
-        }
-      });
-    });
-  }
-
-  function viewVerify() {
-    if (!F.email) return go("#/forgot");
-    authPage({
-      top: backTo("#/forgot"),
-      body: `<h1>Email Verification</h1><p>Enter the 6-digit code sent to ${esc(F.email)}. If an account uses this address, the code arrives in a minute. It expires in 10 minutes.</p>
-        <form class="grid" id="verify" style="gap:10px" novalidate>
-          <label class="field"><span>Verification code</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter code" required /></label>
-          <button class="link forgot" type="button" id="again" style="margin-top:0">Resend code</button>
-          <button class="btn btn--block" type="submit" style="margin-top:22px">Verify code</button>
-        </form>`,
-    });
-    $("#again").addEventListener("click", async (e) => {
-      try {
-        await RH.call("auth/forgot", { method: "POST", body: { email: F.email, method: "code" } });
-        showAlert($("#verify"), "We sent a new code. Use the latest one.", "info");
-      } catch (err) {
-        showAlert($("#verify"), err.message);
-      }
-    });
-    $("#verify").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const code = new FormData(f).get("code").replace(/\D/g, "");
-      if (code.length !== 6) return fieldErrors(f, { fields: { code: "Enter the 6 digits from the email." } });
-      busy(e.submitter || $(".btn", f), async () => {
-        try {
-          const r = await RH.call("auth/reset-code", { method: "POST", body: { email: F.email, code } });
-          F.resetToken = r.token;
-          go("#/reset");
-        } catch (err) {
-          showAlert(f, err.message);
-        }
-      });
-    });
-  }
-
-  function viewReset() {
-    if (!F.resetToken) return go("#/forgot");
-    authPage({
-      top: backTo("#/login"),
-      body: `<h1>Password Reset</h1><p>Create a new password to secure your account</p>
-        <form class="grid" id="reset" style="gap:14px" novalidate>
-          ${pwField("password", "New password", "Enter password", "new-password")}
-          ${pwField("confirm", "Confirm password", "Enter password", "new-password")}
-          <button class="btn btn--block" type="submit" style="margin-top:12px">Reset</button>
-        </form>`,
-    });
-    $("#reset").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const f = e.target;
-      const v = Object.fromEntries(new FormData(f));
-      if (v.password.length < 10) return fieldErrors(f, { fields: { password: "Use at least 10 characters." } });
-      if (v.password !== v.confirm) return fieldErrors(f, { fields: { confirm: "The passwords don't match." } });
-      busy(e.submitter || $(".btn", f), async () => {
-        try {
-          await RH.call("auth/reset", { method: "POST", body: { token: F.resetToken, password: v.password } });
-          F.resetToken = "";
-          let n = 3;
-          const box = modal(
-            `<div class="done-ico">${ic("check")}</div><h2>Password Reset Successful</h2><p class="sub">Your password reset was successful. Log in to your account.</p><a class="btn btn--sm" href="#/login" id="redir">Redirecting in ${n} secs</a>`,
-            "modal--small",
-          );
-          const t = setInterval(() => {
-            n -= 1;
-            const a = $("#redir", box);
-            if (a) a.textContent = `Redirecting in ${n} secs`;
-            if (n <= 0) {
-              clearInterval(t);
-              closeModal();
-              go("#/login");
-            }
-          }, 1000);
-        } catch (err) {
-          showAlert(f, err.message);
-          fieldErrors(f, err);
-        }
-      });
-    });
-  }
-
-  function viewPending(m) {
-    authPage({
-      top: `<span class="grow"></span><span>${esc(SESSION.user.email)} · <button class="link" type="button" data-logout>Sign out</button></span>`,
-      body: `<h1>${m.status === "pending" ? "We're reviewing your business" : m.status === "rejected" ? "Application not approved" : "Access suspended"}</h1>
-        <p>${
-          m.status === "pending"
-            ? `Thanks, ${esc(first(SESSION.user.full_name))}. Our team is checking ${esc((m.details && m.details.business_name) || "your business")}. We'll email ${esc(SESSION.user.email)} as soon as your ${m.role === "gateway" ? "payment system" : "store"} is approved.`
-            : (m.review_note ? "Reason: " + esc(m.review_note) + ". " : "") +
-              "Contact info@rehohub.com if you have questions."
-        }</p>
-        <form id="shop" class="grid" novalidate>
-          ${RH.rolesIn(SESSION.user, "aipay").includes("customer") ? "" : `<button class="btn btn--block" type="submit">Shop on AiPay while you wait</button>`}
-          <a class="btn btn--line btn--block" href="../account/index.html">My Rehohub account</a>
-        </form>`,
-    });
-    $("#shop").addEventListener("submit", (e) => {
-      e.preventDefault();
-      busy(e.submitter, () => apply(e.target, "customer", {}));
+      if (!intent) return showAlert(e.target, "Please choose what you want to do on AiPay.");
+      location.href = RH.url(`account/register.html?product=aipay&role=${INTENTS[intent].role}`);
     });
   }
 
@@ -762,6 +412,12 @@
               ? `<label class="sr" for="role">Switch AiPay view</label><select id="role">${roles.map((r) => `<option value="${r}" ${r === ROLE ? "selected" : ""}>${SIDE_LABEL[r]}</option>`).join("")}</select>`
               : ""
           }
+          ${
+            RH.isAdminFor(SESSION.user, "aipay")
+              ? `<a class="link" style="font-size:12px;margin-top:6px" href="${esc(RH.url("account/admin.html"))}">Admin console</a>`
+              : ""
+          }
+          <a class="link" style="font-size:12px" href="${esc(RH.url("account/index.html"))}">My Rehohub account</a>
           <button class="btn btn--sm" type="button" data-logout>Log Out</button>
         </div>
       </aside>
@@ -791,7 +447,7 @@
       if (b) b.setAttribute("aria-expanded", String(open));
     }
     if (e.target.closest("[data-logout]")) {
-      RH.logout(location.pathname + "#/login");
+      RH.logout(location.pathname);
     }
   });
 
@@ -1475,16 +1131,6 @@
   }
 
   // ------------------------------------------------------------ router
-  const PUBLIC = {
-    join: viewJoin,
-    signup: viewSignup,
-    business: viewBusiness,
-    login: viewLogin,
-    forgot: viewForgot,
-    verify: viewVerify,
-    reset: viewReset,
-    check: viewCheck,
-  };
   const app = $("#app");
 
   function render() {
@@ -1495,17 +1141,12 @@
     const user = SESSION && SESSION.user;
     document.title = "AiPay";
     if (page === "pay" && arg) return viewPay(arg.replace(/\D/g, ""), params);
-    if (!user) {
-      if (PUBLIC[page] && page !== "business") return PUBLIC[page]();
-      if (page === "business") return viewBusiness();
-      return location.replace("#/" + (page && !PUBLIC[page] ? "login" : "join")), undefined;
-    }
+    if (!user) return viewWelcome();
     const roles = aipayRoles(user);
     if (!roles.length) {
-      const m = RH.memberships(user, "aipay").find((x) => x.role !== "customer" && x.status !== "approved");
-      if (m && page !== "join" && page !== "business") return viewPending(m);
-      if (page === "business") return viewBusiness();
-      return viewJoin();
+      // Not added yet, waiting for approval, rejected or suspended: the shared Rehohub screen explains.
+      RH.guard("aipay", ["customer", "merchant"]).catch(() => {});
+      return;
     }
     const saved = store.get("aipay-role:" + user.id, null);
     ROLE = roles.includes(ROLE) ? ROLE : roles.includes(saved) ? saved : roles[0];
@@ -1535,8 +1176,6 @@
       settings: viewSettings,
     };
     if (page === "history" && ROLE === "merchant") return go("#/sales");
-    if (page === "join") return viewJoin();
-    if (page === "business") return viewBusiness();
     (pages[page] || (() => location.replace("#/dashboard")))();
     document.title = (page && pages[page] ? page[0].toUpperCase() + page.slice(1) + " · " : "") + "AiPay";
   }
@@ -1552,12 +1191,7 @@
     } catch (e) {
       SESSION = { user: null };
       const [page] = location.hash.replace(/^#\/?/, "").split(/[/?]/);
-      if (page !== "pay") {
-        render();
-        const form = $("form");
-        if (form) showAlert(form, e.message);
-        return;
-      }
+      if (page !== "pay") return viewWelcome(e.message);
     }
     render();
   })();

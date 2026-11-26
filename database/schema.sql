@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS memberships (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id      INT UNSIGNED NOT NULL,
   product      ENUM('rehohub','aipay','aimove','greenfed','airise') NOT NULL,
-  role         ENUM('customer','rider','merchant','gateway','employee','trainer','admin') NOT NULL,
+  role         ENUM('customer','rider','merchant','employee','trainer','admin') NOT NULL,
   -- customers are approved automatically; riders, merchants, employees and trainers wait
   -- for an administrator; admins are created by invitation only
   status       ENUM('pending','approved','rejected','suspended') NOT NULL DEFAULT 'pending',

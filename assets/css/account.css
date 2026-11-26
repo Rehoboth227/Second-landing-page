@@ -266,8 +266,24 @@ fieldset {
 .roles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 16px;
   margin-top: 8px;
+  align-items: start;
+}
+.roles__col {
+  display: grid;
+  gap: 10px;
+}
+.roles__h {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+}
+.roles__h small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #64748b;
 }
 .role {
   position: relative;
