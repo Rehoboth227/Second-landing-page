@@ -14,8 +14,8 @@ services/<name>.html           One page per subsidiary (10): Rheti, RehoCon, Reh
 products/aipay.html            AiPay: e-store with built-in payments
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
-products/airise/               AiRise HR and employability site:
-  index.html                     overview
+services/rheti/                Rheti service site (the employability website, moved here from AiRise):
+  index.html                     overview (services/rheti.html forwards here)
   talent.html, employers.html    the two sides of the platform
   programme.html                 the nine-course Employability Skills Series
   course-<name>.html             one page per course (9)
@@ -23,7 +23,9 @@ products/airise/               AiRise HR and employability site:
   certificates.html              certificate types and number checker
   facilitators.html              delivery options and checklist
   platform.html, about.html      system design, roadmap and company story
-  dashboard.html                 learner dashboard (app layout)
+products/airise/               AiRise product: straight to sign-in and the platform
+  index.html                     access gateway: sign in / register, or straight in when signed in
+  dashboard.html                 learner dashboard
   learn.html                     course player, e.g. learn.html?course=adaptability
   trainer.html                   trainer studio: course list and four-step course upload
 account/                       Rehohub accounts: login, register, verify, forgot, reset, invite,
