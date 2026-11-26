@@ -2074,7 +2074,6 @@
         S.cart = {};
       }
       S.orders.unshift(o);
-      S.users[0].name = S.user.name;
       note(
         d.kind === "plan" ? "Meal Plan" : "Grocery",
         d.kind === "plan" ? "Your payment for meal plan confirmed" : "Your grocery payment is confirmed",
