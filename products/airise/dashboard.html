@@ -401,7 +401,7 @@
               <circle class="val" cx="56" cy="56" r="50" /></svg
             ><span class="avatar">AO</span><span class="ring__pct" data-ring-pct>0%</span>
           </div>
-          <h3 data-greet>Good morning, Amaka</h3>
+          <h3 data-greet>Good morning</h3>
           <p>Continue your journey and reach your target.</p>
           <div class="profile__btns">
             <a class="icon-btn icon-btn--round" href="#upcoming" aria-label="Notifications"
@@ -534,7 +534,23 @@
     </div>
     <script src="../../assets/js/rh-auth.js"></script>
     <script>
-      RH.guard("airise", ["customer", "trainer"]).catch(() => {});
+      RH.guard("airise", ["customer", "trainer"])
+        .then(({ user }) => {
+          // Greet the signed-in learner by name
+          const first = user.full_name.split(" ")[0];
+          document.body.dataset.firstName = first;
+          const g = document.querySelector("[data-greet]");
+          if (g) g.textContent = g.textContent.replace(/,.*$/, ", " + first);
+          const av = document.querySelector(".profile .avatar");
+          if (av)
+            av.textContent = user.full_name
+              .split(/\s+/)
+              .map((w) => w[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
+        })
+        .catch(() => {});
     </script>
     <script src="../../assets/js/airise-app.js"></script>
   </body>

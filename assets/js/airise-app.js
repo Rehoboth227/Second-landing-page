@@ -231,7 +231,8 @@
     // Greeting
     const h = new Date().getHours();
     const g = $("[data-greet]");
-    if (g) g.textContent = `${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}, Amaka`;
+    if (g)
+      g.textContent = `${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}, ${document.body.dataset.firstName || "there"}`;
 
     // Banner
     $("[data-banner-title]").textContent = `Continue ${current.title}: “${current.ask}”`;
