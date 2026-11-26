@@ -695,15 +695,11 @@
       "",
     )}${p.status === "CANCELLED" ? `<li class="done"><b>Cancelled</b><small>Refunded to your wallet</small></li>` : ""}</ol>`;
   }
+  // Customers see only the final price; the line-by-line breakdown stays in aimove-pricing.js.
   function charges(f, extra = "") {
-    if (!f.lines)
-      return `<dl class="kv"><div class="tot"><dt>Package total</dt><dd><b>${naira(f.total)}</b></dd></div>${extra}</dl>`;
-    return `<dl class="kv">
-      ${f.lines
-        .filter((l) => l.amount || l.key === "base" || l.key === "distance")
-        .map((l) => `<div><dt>${esc(l.label)}</dt><dd>${naira(l.amount)}</dd></div>`)
-        .join("")}
-      <div class="tot"><dt>Package total</dt><dd><b>${naira(f.total)}</b></dd></div>${extra}
+    const sub = f.lines ? `${esc(f.serviceName)} · ${esc(f.vehicleName)}` : "";
+    return `<dl class="kv">${sub ? `<div><dt>Delivery</dt><dd>${sub}</dd></div>` : ""}
+      <div class="tot"><dt>Total price</dt><dd><b>${naira(f.total)}</b></dd></div>${extra}
     </dl>`;
   }
   function pkgRow(p, href) {
@@ -981,7 +977,7 @@
           <div><dt>Delivery type</dt><dd>${d.type === "SCHEDULED" ? `Scheduled · ${esc(fmtDate(d.when))}, ${esc(d.slot)}` : esc(serviceName(d.type))}</dd></div>
           <div><dt>Vehicle</dt><dd>${esc(d.fare.vehicleName || "")}</dd></div>
           ${r ? `<div><dt>Rider</dt><dd>${esc(r.name)} · ${esc(r.plate)}</dd></div>` : ""}</dl>
-        <h2 class="h h--p" style="margin-top:8px">Charges</h2>${charges(d.fare)}
+        <h2 class="h h--p" style="margin-top:8px">Price</h2>${charges(d.fare)}
       </section>
       <aside class="stack"><section class="card stack"><span class="guar">${ic("shield")}Guaranteed price</span><p class="mute">This is the price you pay. It won't change after booking.</p><p class="mute" style="font-size:14px">Your payment is held in <b>escrow</b> and released to the rider automatically when the recipient confirms delivery with their 4-digit PIN. Cancel before pickup for a full refund.</p>
         <a class="btn btn--block" href="#/pay">Proceed to pay ${naira(d.fare.total)}</a><a class="btn btn--line btn--block" href="#/send">${ic("edit")}Edit package</a></section></aside></div>`,
