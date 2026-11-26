@@ -57,6 +57,7 @@ $routes = [
     'POST auth/logout' => 'r_logout',
     'POST auth/forgot' => 'r_forgot',
     'POST auth/reset' => 'r_reset',
+    'POST auth/reset-code' => 'r_reset_code',
     'POST me/profile' => 'r_profile',
     'POST me/password' => 'r_password',
     'POST me/memberships' => 'r_apply',
@@ -293,15 +294,45 @@ function r_forgot(): never
     rate_limit('forgot:' . client_ip(), 6, 3600);
     rate_limit('forgot-email:' . $email, 3, 3600);
     $u = valid_email($email) ? row('SELECT * FROM users WHERE email = ?', [$email]) : null;
+    $byCode = (input()['method'] ?? '') === 'code';
     if ($u && !in_array($u['status'], ['banned', 'deactivated'], true)) {
         q("UPDATE tokens SET revoked_at = ? WHERE user_id = ? AND purpose = 'reset_password' AND used_at IS NULL AND revoked_at IS NULL", [now_utc(), (int) $u['id']]);
+        if ($byCode) {
+            $code = make_code_token('reset_password', $email, (int) $u['id'], RESET_CODE_MINUTES * 60);
+            send_mail($email, 'Your password reset code',
+                "Hello {$u['full_name']},\n\nYour code to reset your password is:\n\n    $code\n\n" .
+                "It expires in " . RESET_CODE_MINUTES . " minutes. If you didn't ask for this, ignore this email; your password stays the same.");
+            audit(null, 'reset_code_requested', (int) $u['id']);
+            ok(['message' => 'If an account uses that address, we have emailed a code.']);
+        }
         $token = make_token('reset_password', $email, (int) $u['id'], RESET_MINUTES * 60);
         send_mail($email, 'Reset your Rehohub password',
             "Hello {$u['full_name']},\n\nUse this link to choose a new password:\n\n" . site_url('account/reset.html#token=' . $token) .
             "\n\nIt works once and expires in " . RESET_MINUTES . " minutes. If you didn't ask for this, ignore this email; your password stays the same.");
         audit(null, 'reset_requested', (int) $u['id']);
     }
-    ok(['message' => 'If an account uses that address, we have emailed a reset link.']);
+    ok(['message' => $byCode ? 'If an account uses that address, we have emailed a code.' : 'If an account uses that address, we have emailed a reset link.']);
+}
+
+/** Swaps a correct emailed code for a one-time reset token, which auth/reset then accepts. */
+function r_reset_code(): never
+{
+    $email = norm_email(str_in('email', 190));
+    $code = preg_replace('/\D/', '', str_in('code', 12)) ?? '';
+    rate_limit('reset-code:' . client_ip(), 20, 3600);
+    rate_limit('reset-code-email:' . $email, 5, 3600);
+    $bad = fn () => fail(400, 'bad_code', 'That code is wrong or has expired. Check the email, or ask for a new code.');
+    if (!valid_email($email) || strlen($code) !== 6) {
+        $bad();
+    }
+    $t = row("SELECT * FROM tokens WHERE purpose = 'reset_password' AND token_hash = ? AND email = ?", [code_hash($email, $code), $email]);
+    if (!$t || $t['used_at'] || $t['revoked_at'] || strtotime($t['expires_at'] . ' UTC') < time()) {
+        $bad();
+    }
+    use_token((int) $t['id']);
+    $token = make_token('reset_password', $email, (int) $t['user_id'], 15 * 60);
+    audit(null, 'reset_code_verified', (int) $t['user_id']);
+    ok(['token' => $token]);
 }
 
 function r_reset(): never

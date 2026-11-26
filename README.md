@@ -13,7 +13,12 @@ services/<name>.html           One page per subsidiary (11): Rheti, RehoCon, Reh
                                RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive, Havibank
 services/havibank.html         Havibank, the digital financial institution: the AiPay design plus the
                                roadmap (AiPay live; payments and banking in progress)
-products/aipay.html            AiPay sign-in gateway: sign in or register, then open aipay.rehohub.com
+products/aipay.html            AiPay web app (from the "Ai Pay Project" Figma): Join AiPay Today, sign up,
+                               business details, terms, login, forgot password with emailed code, reset;
+                               payment system users: dashboard, payment history, details and receipts,
+                               notifications, profile, settings, points card (VIP gold, VVIP navy,
+                               VVIP Black), payment link checkout (#/pay/<code>, test mode);
+                               merchants: dashboard, sales, products
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
 services/rheti/                Rheti service site (the employability website, moved here from AiRise):
@@ -180,7 +185,13 @@ and the navy and gold of AiRise and Rheti (Rheti uses Poppins, per its brand gui
 
 ## Before launch
 
-- The App Store / Google Play links are placeholders. AiPay buttons open the AiPay gateway; AiPay still has its own sign-in at aipay.rehohub.com until single sign-on is connected.
+- The App Store / Google Play links are placeholders. AiPay payments, products and notifications are saved per account on the device and checkouts run in test mode until the AiPay payment server is connected.
 - AiMove, AiRise and Rheti have no product email yet and use info@rehohub.com.
 - The AiRise assessment page publishes only the structure and rules of the assessments.
   Keep answer keys, model answers and marking guides out of this public site.
+
+## AiPay points card
+
+`assets/img/aipay/world.svg` is drawn from Natural Earth land data (public domain) via the
+`world-atlas` package. Shoppers earn 1 point per ₦100 paid and businesses 1 point per ₦1,000
+received. Tiers: VIP (gold) from 0, VVIP (navy) from 10,000, VVIP Black from 50,000 points.

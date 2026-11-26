@@ -18,6 +18,13 @@
   const OPTIONS = [
     { product: "aipay", role: "customer", title: "Shop on AiPay", sub: "Buy from stores near you" },
     { product: "aipay", role: "merchant", title: "Sell on AiPay", sub: "Open your store", review: true },
+    {
+      product: "aipay",
+      role: "gateway",
+      title: "Take payments with AiPay",
+      sub: "Request a payment system",
+      review: true,
+    },
     { product: "aimove", role: "customer", title: "Send with AiMove", sub: "Book deliveries and track them" },
     { product: "aimove", role: "rider", title: "Ride for AiMove", sub: "Deliver packages and earn", review: true },
     { product: "greenfed", role: "customer", title: "Eat well with GreenFed", sub: "Meal plans, groceries, community" },
@@ -32,9 +39,15 @@
     { product: "airise", role: "trainer", title: "Teach on AiRise", sub: "Upload and run courses", review: true },
   ];
   const DETAILS = {
+    gateway: [
+      ["business_name", "Business name", "text", true],
+      ["business_category", "Industry", "text", false, "e.g. Education, retail, hospitality"],
+      ["website", "Website", "text", false, "Where you will take payments"],
+      ["about", "About your business", "text", false],
+    ],
     merchant: [
       ["business_name", "Business name", "text", true],
-      ["business_address", "Business address", "text", true],
+      ["business_address", "Business address", "text", false],
       ["business_category", "What do you sell?", "text", false, "e.g. Food & drinks, fashion"],
       ["cac_number", "CAC registration number", "text", false, "Optional, but speeds up approval"],
     ],
@@ -719,7 +732,7 @@
         p === "rehohub"
           ? ["admin"]
           : {
-              aipay: ["customer", "merchant"],
+              aipay: ["customer", "merchant", "gateway"],
               aimove: ["customer", "rider"],
               greenfed: ["customer", "employee"],
               airise: ["customer", "trainer"],

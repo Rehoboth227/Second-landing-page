@@ -8,14 +8,14 @@ declare(strict_types=1);
 // ------------------------------------------------------------------ products and roles
 // Which roles can exist in each product, and which need an administrator's approval.
 const PRODUCTS = [
-    'aipay'    => ['name' => 'AiPay',    'roles' => ['customer', 'merchant']],
+    'aipay'    => ['name' => 'AiPay',    'roles' => ['customer', 'merchant', 'gateway']],
     'aimove'   => ['name' => 'AiMove',   'roles' => ['customer', 'rider']],
     'greenfed' => ['name' => 'GreenFed', 'roles' => ['customer', 'employee']],
     'airise'   => ['name' => 'AiRise',   'roles' => ['customer', 'trainer']],
 ];
-const NEEDS_APPROVAL = ['rider', 'merchant', 'employee', 'trainer'];
+const NEEDS_APPROVAL = ['rider', 'merchant', 'gateway', 'employee', 'trainer'];
 const ROLE_NAMES = [
-    'customer' => 'Customer', 'rider' => 'Rider', 'merchant' => 'Merchant',
+    'customer' => 'Customer', 'rider' => 'Rider', 'merchant' => 'Merchant', 'gateway' => 'Payment system user',
     'employee' => 'Employee', 'trainer' => 'Trainer', 'admin' => 'Administrator',
 ];
 const EMPLOYEE_TYPES = [
@@ -30,6 +30,7 @@ const CAN_LOG_IN = ['active', 'warning'];
 const SESSION_IDLE_SECONDS = 8 * 3600;
 const VERIFY_HOURS = 48;
 const RESET_MINUTES = 60;
+const RESET_CODE_MINUTES = 10;
 const INVITE_DAYS = 7;
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
@@ -382,9 +383,19 @@ function clean_details(string $role, mixed $raw): array
     switch ($role) {
         case 'merchant':
             $need('business_name', 2, 120, 'your business name');
-            $need('business_address', 5, 200, 'your business address');
+            $opt('business_address', 200);
             $opt('cac_number', 30);
             $opt('business_category', 60);
+            $opt('about', 600);
+            break;
+        case 'gateway':
+            // AiPay "Request a payment system": a business that takes payments through AiPay.
+            $need('business_name', 2, 120, 'your business name');
+            $opt('business_category', 60);
+            $opt('about', 600);
+            $opt('website', 200);
+            $opt('business_address', 200);
+            $opt('cac_number', 30);
             break;
         case 'rider':
             $v = $get('vehicle_type', 20);
@@ -460,6 +471,25 @@ function make_token(string $purpose, string $email, ?int $uid, int $ttlSeconds, 
         $purpose, hash('sha256', $secret), $uid, $email, $data ? json_encode($data) : null, $createdBy, utc_plus($ttlSeconds),
     ]);
     return $secret;
+}
+
+/**
+ * A short numeric code sent by email (AiPay's "Email Verification" step). The code is stored
+ * hashed together with the email address, so it only works for that address; callers must
+ * rate-limit attempts, because a 6-digit code is short.
+ */
+function make_code_token(string $purpose, string $email, int $uid, int $ttlSeconds): string
+{
+    $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    q('INSERT INTO tokens (purpose, token_hash, user_id, email, data, expires_at) VALUES (?, ?, ?, ?, ?, ?)', [
+        $purpose, code_hash($email, $code), $uid, $email, json_encode(['code' => true]), utc_plus($ttlSeconds),
+    ]);
+    return $code;
+}
+
+function code_hash(string $email, string $code): string
+{
+    return hash('sha256', 'code:' . norm_email($email) . ':' . $code);
 }
 
 /** Finds a valid (unused, unexpired, not revoked) token, or null. */
