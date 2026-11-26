@@ -608,11 +608,12 @@
                 return `<article class="app-item"><div class="app-item__head"><div><b>${esc(m.full_name)}</b> · <span class="mute">${esc(m.email)}</span><br><small>${esc(label(m.product, m.role))} · applied ${fmt(
                   m.created_at,
                 )}${m.account_status !== "active" ? ` · account <span class="st st--${m.account_status}">${m.account_status.replace("_", " ")}</span>` : ""}</small></div><span class="st st--${m.status}">${m.status}</span></div>
-                  <dl>${m.phone ? `<dt>Phone</dt><dd>${esc(m.phone)}</dd>` : ""}<dt>Email confirmed</dt><dd>${m.email_verified_at ? "Yes" : "Not yet"}</dd>${det}${
+                  <dl>${m.phone ? `<dt>Phone</dt><dd>${esc(m.phone)}</dd>` : ""}<dt>Email confirmed</dt><dd>${m.email_verified_at ? "Yes" : "Not yet"}</dd>${det}${aipayStore(m)}${
                     m.reviewed_at
                       ? `<dt>Reviewed</dt><dd>${fmt(m.reviewed_at)}${m.reviewer ? " by " + esc(m.reviewer) : ""}${m.review_note ? " · " + esc(m.review_note) : ""}</dd>`
                       : ""
                   }</dl>
+                  ${!self ? aipayFeeButtons(m) : ""}
                   ${
                     self
                       ? `<p class="mute">This is your own account; another administrator must review it.</p>`
@@ -633,6 +634,67 @@
     $("#filters").addEventListener("submit", (e) => (e.preventDefault(), loadApps()));
     $("#f-status").onchange = loadApps;
     $("#f-product").onchange = loadApps;
+
+    // AiPay stores: store profile and the one-off review fee (paid by bank transfer to Rehohub).
+    const FEE_LABEL = {
+      no_store: "Store profile not set up yet",
+      unpaid: "Not paid yet",
+      submitted: "Merchant says they paid: check the Rehohub Moniepoint account",
+      confirmed: "Confirmed",
+      rejected: "Not received",
+    };
+    function aipayStore(m) {
+      const s = m.aipay_store;
+      if (!s) return "";
+      const rows = [["AiPay review fee", FEE_LABEL[s.fee_status] || s.fee_status]];
+      if (s.fee_sender)
+        rows.push([
+          "Paid from",
+          `${s.fee_sender} (${s.fee_bank || ""})${s.fee_submitted_at ? " · " + fmt(s.fee_submitted_at) : ""}`,
+        ]);
+      if (s.fee_note) rows.push(["Fee note", s.fee_note]);
+      if (s.fee_status !== "no_store") {
+        rows.push(["Store", [s.business_name, s.category].filter(Boolean).join(" · ")]);
+        rows.push(["Store address", [s.city, s.state].filter(Boolean).join(", ")]);
+        if (s.reg_number) rows.push(["ID / CAC number", s.reg_number]);
+        if (s.social) rows.push(["Social", s.social]);
+        rows.push(["Payout account", s.bank]);
+      }
+      return rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+    }
+    function aipayFeeButtons(m) {
+      const s = m.aipay_store;
+      if (!s || !["submitted", "rejected"].includes(s.fee_status)) return "";
+      return `<div class="row"><button class="btn btn--sm btn--ok" data-fee="confirm" data-uid="${m.user_id}" data-who="${esc(m.full_name)}">Confirm fee received</button>${
+        s.fee_status === "submitted"
+          ? `<button class="btn btn--sm btn--bad" data-fee="reject" data-uid="${m.user_id}" data-who="${esc(m.full_name)}">Fee not received</button>`
+          : ""
+      }</div>`;
+    }
+    document.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-fee]");
+      if (!b) return;
+      const confirmIt = b.dataset.fee === "confirm";
+      let note = "";
+      if (confirmIt) {
+        if (!confirm(`Confirm that the AiPay review fee from ${b.dataset.who} is in the Rehohub account?`)) return;
+      } else {
+        note = (prompt(`Why couldn't you confirm ${b.dataset.who}'s payment? They will see this.`) || "").trim();
+        if (!note) return;
+      }
+      b.disabled = true;
+      try {
+        const r = await RH.call("admin/aipay/fee", {
+          method: "POST",
+          body: { user_id: Number(b.dataset.uid), decision: b.dataset.fee, note },
+        });
+        toast(r.message || "Saved.");
+        loadApps();
+      } catch (err) {
+        toast(err.message);
+        b.disabled = false;
+      }
+    });
 
     // decision dialog
     const dlg = $("#decide");

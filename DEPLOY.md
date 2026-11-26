@@ -87,6 +87,35 @@ refuses to run over plain `http://`, to protect passwords.
 If anything fails, cPanel → **Errors** (or `public_html/error_log`) shows what went wrong. Error
 messages never include passwords.
 
+## Updating a site that is already live: the AiPay store (November 2026)
+
+The AiPay store keeps stores, products, orders and notifications in your database. If your
+database was set up before this update, add the new tables once:
+
+1. cPanel → **phpMyAdmin** → click your Rehohub database on the left → **SQL** tab.
+2. Open `database/migrations-001-aipay-store.sql` from the new files, copy everything, paste it
+   into the box and press **Go**. It only adds tables whose names start with `aipay_`; nothing
+   else changes. (New installs don't need this: `schema.sql` already has them.)
+3. Upload the new files as usual (Step 1), including `api/lib/aipay.php`.
+
+**How an AiPay store goes live:**
+
+1. The merchant signs up as **Sell on AiPay**, confirms their email, opens AiPay and fills in
+   **Profile Set Up** (business details, payout bank account, logo).
+2. They pay the one-off **NGN 10,000 review fee** by transfer to **Rehohub Ltd, Moniepoint,
+   810512715**, then enter the name and bank they paid from. You get an email.
+3. In **Admin console → Applications**, the merchant's card shows the fee and the store details.
+   Check the Moniepoint account, then press **Confirm fee received** (or **Fee not received**
+   with a reason), and **Approve** the application.
+4. The store is live once both are done: its products appear in the AiPay Store.
+
+**How buyers pay:** by bank transfer straight to the store's account shown at checkout. The buyer
+taps "I've sent the money", the store checks its account and taps **Payment received**, and the
+order moves on (processing → ready → shipped → delivered). AiPay does not hold money and card
+payment is shown as "coming soon" until a payment provider (e.g. Paystack) is connected.
+
+---
+
 ## Who can do what
 
 | Person                                                        | How they get access                                                                       | What they can see and do                                              |
@@ -123,8 +152,8 @@ messages never include passwords.
 ## What is still front-end only (next phases)
 
 - **Product data**: GreenFed meal plans, orders and records, AiMove deliveries and wallet, and
-  AiRise course progress, and AiPay payments, products and notifications are still saved
-  **per account on the person's device**. AiPay checkouts run in test mode and move no money. The apps say so
+  AiRise course progress are still saved **per account on the person's device** (AiPay is
+  already in the database). The apps say so
   with a "Preview" note. Moving each of these into the database is the next phase, one product
   at a time.
 - **Payments** (Paystack or Flutterwave), **document uploads** (ID, licence, CAC certificate) for

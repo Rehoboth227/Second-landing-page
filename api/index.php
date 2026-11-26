@@ -11,6 +11,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib/core.php';
+require __DIR__ . '/lib/aipay.php';
 
 security_headers();
 set_exception_handler(function (Throwable $e) {
@@ -71,6 +72,29 @@ $routes = [
     'POST admin/invites' => 'r_admin_invite_create',
     'POST admin/invites/revoke' => 'r_admin_invite_revoke',
     'GET admin/audit' => 'r_admin_audit',
+    // AiPay store (api/lib/aipay.php)
+    'GET aipay/me' => 'r_aipay_me',
+    'POST aipay/prefs' => 'r_aipay_prefs',
+    'GET aipay/notes' => 'r_aipay_notes',
+    'POST aipay/notes' => 'r_aipay_notes_update',
+    'GET aipay/products' => 'r_aipay_products',
+    'GET aipay/product' => 'r_aipay_product',
+    'GET aipay/image' => 'r_aipay_image',
+    'POST aipay/image' => 'r_aipay_image_upload',
+    'POST aipay/store' => 'r_aipay_store_save',
+    'POST aipay/store/fee' => 'r_aipay_store_fee',
+    'POST aipay/store/seen' => 'r_aipay_store_seen',
+    'GET aipay/my-products' => 'r_aipay_my_products',
+    'POST aipay/my-products' => 'r_aipay_product_save',
+    'POST aipay/my-products/delete' => 'r_aipay_product_delete',
+    'POST aipay/orders' => 'r_aipay_order_create',
+    'GET aipay/orders' => 'r_aipay_my_orders',
+    'GET aipay/order' => 'r_aipay_order',
+    'POST aipay/order' => 'r_aipay_order_buyer',
+    'GET aipay/sales' => 'r_aipay_sales',
+    'POST aipay/sales' => 'r_aipay_sale_update',
+    'GET aipay/dashboard' => 'r_aipay_dashboard',
+    'POST admin/aipay/fee' => 'r_aipay_admin_fee',
     'GET setup/status' => 'r_setup_status',
     'POST setup' => 'r_setup',
 ];
@@ -520,6 +544,9 @@ function r_admin_memberships(): never
                WHERE $where ORDER BY m.created_at DESC LIMIT 200", $params)->fetchAll();
     foreach ($rows as &$r) {
         $r['details'] = $r['details'] ? (json_decode($r['details'], true) ?: []) : [];
+        if ($r['product'] === 'aipay' && $r['role'] === 'merchant') {
+            $r['aipay_store'] = aipay_admin_store_info((int) $r['user_id']);
+        }
     }
     ok(['items' => $rows]);
 }
