@@ -1171,7 +1171,7 @@
       ${pp("about", "info", "About us", "Know more about us, terms and conditions", `<p class="mute">AiMove is a Rehohub product. Deliveries are run by RehoTrans, Rehohub's logistics company.</p><a class="link" href="../services/rehotrans.html">About RehoTrans</a>`)}
       <li><button class="danger" data-act="logout">${ic("logout")}<span class="grow"><b>Log out</b></span></button></li></ul></section>
       <aside class="stack"><section class="card prof"><span class="ava ava--lg ${r === "rider" ? "ava--o" : ""}">${initials(name)}</span><h2>${esc(name)}</h2><p class="mute">${r === "rider" ? `${esc(S.user.vehicle)} · ${esc(S.user.plate)}` : esc(S.user.business)}</p><span class="st st--REQUESTED">${ROLE_NAME[r]}</span></section>
-        <section class="card stack"><h2 class="h" style="margin:0">Need help?</h2><p class="mute">Customer care is open 8–9pm on weekdays and 9–5 at weekends.</p><a class="btn btn--line btn--sm" href="#/chat/support">${ic("headset")}Chat with us</a></section></aside></div>`,
+        <section class="card stack"><h2 class="h" style="margin:0">Need help?</h2><p class="mute">Customer care is open 8–9pm on weekdays and 9–5 at weekends.</p><a class="btn btn--line btn--sm" href="#/chat/support">${ic("headset")}Chat with us</a>${r === "customer" ? `<a class="btn btn--ghost btn--sm" href="../assets/media/aimove/aimove-customer-tour.mp4" download="AiMove-customer-tour.mp4">${ic("download")}How to use AiMove (video)</a>` : ""}</section></aside></div>`,
     };
   };
 
