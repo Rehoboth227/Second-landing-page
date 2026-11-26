@@ -41,25 +41,13 @@
   const stars = (r) =>
     `<span class="stars" aria-label="${r} out of 5">${[1, 2, 3, 4, 5].map((k) => `<svg class="i ${k <= Math.round(r) ? "" : "off"}" aria-hidden="true"><use href="#i-star"/></svg>`).join("")}</span>`;
 
-  // ------------------------------------------------------------ pricing (PricingEngine.kt)
-  const BASE = 800,
-    PEAK = 350,
-    EXPRESS = 300;
-  const TIERS = [
-    [5, 120, "light parcel"],
-    [20, 160, "medium cargo"],
-    [50, 220, "heavy freight"],
-    [Infinity, 300, "extra heavy"],
-  ];
-  const isPeak = (h) => (h >= 7 && h <= 9) || (h >= 17 && h <= 19);
-  function fare({ kg, km, type, hour }) {
-    const w = kg > 0 ? kg : 5,
-      d = km > 0 ? km : 1;
-    const [, rate, label] = TIERS.find(([max]) => w <= max);
-    const distance = Math.round(d * rate);
-    const peak = isPeak(hour) ? PEAK : 0;
-    const express = type === "INSTANT" ? EXPRESS : 0;
-    return { base: BASE, rate, label, km: d, distance, peak, express, total: BASE + distance + peak + express };
+  // ------------------------------------------------------------ pricing (assets/js/aimove-pricing.js)
+  const PRICING = window.AiMovePricing;
+  const SERVICES = PRICING.CONFIG.services;
+  const serviceName = (t) => (SERVICES[t] ? SERVICES[t].name : t === "INSTANT" ? "Instant" : "Standard");
+  const isFast = (t) => t === "INSTANT" || t === "EXPRESS";
+  function fare({ kg, km, type, hour, vehicle, worth }) {
+    return PRICING.quote({ km, kg, service: type, hour, vehicle: vehicle || "auto", worth });
   }
   // No maps service yet: a stable estimate from the two addresses (same state 3–29 km, otherwise 120–800 km).
   function estKm(o, d) {
@@ -563,6 +551,54 @@
   function note(t, s, link) {
     S.notes.unshift({ id: "n" + now(), t, s, at: now(), read: false, link });
   }
+  // ------------------------------------------------------------ escrow
+  // Every payment is held in escrow. It is released automatically to the rider (their 85% share)
+  // the moment the recipient's 4-digit PIN is confirmed; no administrator approval is needed.
+  // Cancelling before pickup refunds the escrow to the customer's wallet.
+  const riderShareOf = (p) => (p.fare && p.fare.riderShare) || Math.round(((p.fare && p.fare.total) || 0) * 0.85);
+  function escrowOf(p) {
+    if (!p.escrow) {
+      const state = p.status === "DELIVERED" ? "RELEASED" : p.status === "CANCELLED" ? "REFUNDED" : "HELD";
+      p.escrow = { state, amount: p.fare.total, riderShare: riderShareOf(p), heldAt: p.at };
+    }
+    return p.escrow;
+  }
+  const heldFor = (list) =>
+    list.filter((p) => escrowOf(p).state === "HELD").reduce((a, p) => a + escrowOf(p).amount, 0);
+  function releaseEscrow(p) {
+    const e = escrowOf(p);
+    if (e.state !== "HELD") return false;
+    e.state = "RELEASED";
+    e.releasedAt = now();
+    if (p.rider === "me") {
+      S.rider.balance += e.riderShare;
+      S.rider.today += 1;
+      ME_RIDER.trips += 1;
+    }
+    if (p.by === "me")
+      note(
+        "Payment released to your rider",
+        `${naira(e.amount)} for ${p.tracking} left escrow after the PIN was confirmed.`,
+        "#/wallet",
+      );
+    log(
+      "POST",
+      "/api/v1/escrow/release",
+      200,
+      JSON.stringify({ id: p.id, reason: "pin_confirmed" }),
+      JSON.stringify({ released: e.riderShare }),
+    );
+    return true;
+  }
+  function refundEscrow(p) {
+    const e = escrowOf(p);
+    if (e.state !== "HELD") return false;
+    e.state = "REFUNDED";
+    e.refundedAt = now();
+    S.wallet += e.amount;
+    S.tx.unshift({ id: "t" + now(), title: "Refund from escrow", sub: p.tracking, amt: e.amount, at: now() });
+    return true;
+  }
   function setStatus(p, st) {
     p.status = st;
     p.history.push([st, now()]);
@@ -574,11 +610,7 @@
       '{"status":"ACKNOWLEDGED"}',
     );
     if (p.by === "me") note(`Package ${LABEL[st].toLowerCase()}`, `${p.items} · ${p.tracking}`, "#/track/" + p.id);
-    if (st === "DELIVERED" && p.rider === "me") {
-      S.rider.balance += p.fare.total;
-      S.rider.today += 1;
-      ME_RIDER.trips += 1;
-    }
+    if (st === "DELIVERED") releaseEscrow(p);
   }
 
   // ------------------------------------------------------------ UI primitives
@@ -664,11 +696,13 @@
     )}${p.status === "CANCELLED" ? `<li class="done"><b>Cancelled</b><small>Refunded to your wallet</small></li>` : ""}</ol>`;
   }
   function charges(f, extra = "") {
+    if (!f.lines)
+      return `<dl class="kv"><div class="tot"><dt>Package total</dt><dd><b>${naira(f.total)}</b></dd></div>${extra}</dl>`;
     return `<dl class="kv">
-      <div><dt>Base booking fee</dt><dd>${naira(f.base)}</dd></div>
-      <div><dt>Distance (${f.km} km × ${naira(f.rate)}/km, ${f.label})</dt><dd>${naira(f.distance)}</dd></div>
-      <div><dt>Peak-hour surge</dt><dd>${naira(f.peak)}</dd></div>
-      <div><dt>Instant express</dt><dd>${naira(f.express)}</dd></div>
+      ${f.lines
+        .filter((l) => l.amount || l.key === "base" || l.key === "distance")
+        .map((l) => `<div><dt>${esc(l.label)}</dt><dd>${naira(l.amount)}</dd></div>`)
+        .join("")}
       <div class="tot"><dt>Package total</dt><dd><b>${naira(f.total)}</b></dd></div>${extra}
     </dl>`;
   }
@@ -828,7 +862,7 @@
       <section><h2 class="h h--p">Special for you</h2><div class="promos"><div class="promo promo--o"><small>DISPATCH PROMO</small><b>Love &amp; Resolution Offer</b><em>20% OFF</em></div><div class="promo"><small>EVENT</small><b>Tech Meetup coming soon</b></div></div></section>
     </div>
     <div class="stack">
-      <section class="bal"><small>Wallet balance</small><strong>${naira(S.wallet, 2)}</strong><a class="btn btn--sm" href="#/wallet?topup=1">${ic("plus")}Top up</a></section>
+      <section class="bal"><small>Wallet balance</small><strong>${naira(S.wallet, 2)}</strong>${heldFor(mine()) ? `<small>${naira(heldFor(mine()))} held in escrow</small>` : ""}<a class="btn btn--sm" href="#/wallet?topup=1">${ic("plus")}Top up</a></section>
       <section class="card"><div class="row row--sb"><h2 class="h">Scheduled deliveries</h2><a class="link" href="#/send?type=SCHEDULED">Schedule</a></div>
         ${sched.length ? sched.map((p) => pkgRow(p)).join("") : `<p class="mute">No scheduled pickups.</p>`}</section>
       <section class="card"><div class="row row--sb"><h2 class="h">Recent activity</h2><a class="link" href="#/wallet">View all</a></div>
@@ -842,7 +876,8 @@
   V.send = (q) => {
     const d = S.draft || {};
     const pre = q.get("rider") || d.rider || "";
-    const type = q.get("type") || d.type || "INSTANT";
+    const type = SERVICES[q.get("type")] ? q.get("type") : d.type || "SAME_DAY";
+    const veh = d.vehicle || "auto";
     const o = d.origin || {
       addr: S.user.address.replace(/, Lagos$/, ""),
       state: "Lagos",
@@ -873,10 +908,26 @@
           <div class="grid2"><label class="field"><span>Weight of items (kg)</span><input class="inp" name="kg" type="number" min="0.1" step="0.1" value="${esc(d.kg || "")}" required></label>
           <label class="field"><span>Worth of items (₦)</span><input class="inp" name="worth" type="number" min="0" step="100" value="${esc(d.worth ?? "")}" required></label></div></section>
         <section class="card stack"><h2 class="h">Select delivery type</h2>
-          <div class="seg" role="radiogroup" aria-label="Delivery type">
-            <label><input type="radio" name="type" value="INSTANT" ${type === "INSTANT" ? "checked" : ""}><span>${ic("clock")}Instant<small>+₦300 express</small></span></label>
-            <label><input type="radio" name="type" value="SAME_DAY" ${type === "SAME_DAY" ? "checked" : ""}><span>${ic("bike")}Same-day<small>Standard rate</small></span></label>
-            <label><input type="radio" name="type" value="SCHEDULED" ${type === "SCHEDULED" ? "checked" : ""}><span>${ic("calendar")}Scheduled<small>Pick a slot</small></span></label></div>
+          <div class="seg seg--2x2" role="radiogroup" aria-label="Delivery type">
+            ${[
+              ["SAME_DAY", "bike"],
+              ["EXPRESS", "send"],
+              ["INSTANT", "clock"],
+              ["SCHEDULED", "calendar"],
+            ]
+              .map(
+                ([k, icon]) =>
+                  `<label><input type="radio" name="type" value="${k}" ${type === k ? "checked" : ""}><span>${ic(icon)}${SERVICES[k].name}<small>${SERVICES[k].markup ? "+" + naira(SERVICES[k].markup) + " · " : ""}${SERVICES[k].detail}</small></span></label>`,
+              )
+              .join("")}</div>
+          <label class="field"><span>Vehicle</span><select class="inp" name="vehicle">
+            <option value="auto" ${veh === "auto" ? "selected" : ""}>Choose for me by weight</option>
+            ${Object.entries(PRICING.CONFIG.vehicles)
+              .map(
+                ([k, x]) =>
+                  `<option value="${k}" ${veh === k ? "selected" : ""}>${x.name} (up to ${x.maxKg.toLocaleString("en-NG")} kg)</option>`,
+              )
+              .join("")}</select></label>
           <div class="grid2" data-when ${type === "SCHEDULED" ? "" : "hidden"}><label class="field"><span>Pickup date</span><input class="inp" type="date" name="when" min="${tomorrow}" value="${esc(d.when || tomorrow)}"></label>
             <label class="field"><span>Time slot</span><select class="inp" name="slot">${SLOTS.map((s) => `<option ${s === d.slot ? "selected" : ""}>${s}</option>`).join("")}</select></label></div></section>
       </div>
@@ -899,16 +950,18 @@
       items: v("items"),
       kg: parseFloat(v("kg")) || 0,
       worth: parseFloat(v("worth")) || 0,
+      vehicle: v("vehicle") || "auto",
     };
     d.km = d.origin.addr && d.dest.addr ? estKm(d.origin, d.dest) : 14.5;
     const hour = d.type === "SCHEDULED" ? parseInt(d.slot, 10) : new Date().getHours();
-    d.fare = fare({ kg: d.kg, km: d.km, type: d.type, hour });
+    d.fare = fare({ kg: d.kg, km: d.km, type: d.type, hour, vehicle: d.vehicle, worth: d.worth });
     return d;
   }
   function quote(f) {
     const d = readSend(f);
     $("[data-quote]").innerHTML =
-      `${charges(d.fare)}<p class="mute" style="font-size:13px;margin-top:10px">${d.origin.addr && d.dest.addr ? `Estimated distance ${d.km} km.` : "Add both addresses to estimate the distance (14.5 km shown)."} Peak hours are 7–10am and 5–8pm.</p>`;
+      `${charges(d.fare)}<p class="mute" style="font-size:13px;margin-top:10px">${d.origin.addr && d.dest.addr ? `Estimated distance ${d.km} km.` : "Add both addresses to estimate the distance (14.5 km shown)."} ${esc(d.fare.vehicleName)}${d.fare.upgraded ? " (changed to fit the weight)" : ""}. Peak hours are ${PRICING.CONFIG.peak.label}.</p>
+      <p class="mute" style="font-size:13px;margin-top:6px">You pay into AiMove escrow. The rider is paid only when the recipient gives them the 4-digit PIN.</p>`;
     $("[data-when]").hidden = d.type !== "SCHEDULED";
   }
 
@@ -925,11 +978,12 @@
           <div><dt>Destination</dt><dd>${esc(d.dest.addr)}, ${esc(d.dest.state)}<br><span class="mute">${esc(d.dest.name)} · ${esc(d.dest.phone)}</span></dd></div>
           <div><dt>Package items</dt><dd class="o">${esc(d.items)}</dd></div><div><dt>Weight of items</dt><dd class="o">${d.kg} kg</dd></div>
           <div><dt>Worth of items</dt><dd class="o">${naira(d.worth)}</dd></div>
-          <div><dt>Delivery type</dt><dd>${d.type === "SCHEDULED" ? `Scheduled · ${esc(fmtDate(d.when))}, ${esc(d.slot)}` : d.type === "INSTANT" ? "Instant express" : "Same-day"}</dd></div>
+          <div><dt>Delivery type</dt><dd>${d.type === "SCHEDULED" ? `Scheduled · ${esc(fmtDate(d.when))}, ${esc(d.slot)}` : esc(serviceName(d.type))}</dd></div>
+          <div><dt>Vehicle</dt><dd>${esc(d.fare.vehicleName || "")}</dd></div>
           ${r ? `<div><dt>Rider</dt><dd>${esc(r.name)} · ${esc(r.plate)}</dd></div>` : ""}</dl>
         <h2 class="h h--p" style="margin-top:8px">Charges</h2>${charges(d.fare)}
       </section>
-      <aside class="stack"><section class="card stack"><span class="guar">${ic("shield")}Guaranteed price</span><p class="mute">This is the price you pay. It won't change after booking.</p>
+      <aside class="stack"><section class="card stack"><span class="guar">${ic("shield")}Guaranteed price</span><p class="mute">This is the price you pay. It won't change after booking.</p><p class="mute" style="font-size:14px">Your payment is held in <b>escrow</b> and released to the rider automatically when the recipient confirms delivery with their 4-digit PIN. Cancel before pickup for a full refund.</p>
         <a class="btn btn--block" href="#/pay">Proceed to pay ${naira(d.fare.total)}</a><a class="btn btn--line btn--block" href="#/send">${ic("edit")}Edit package</a></section></aside></div>`,
     };
   };
@@ -1019,7 +1073,7 @@
       }
       ${["DELIVERED", "CANCELLED"].includes(p.status) ? "" : `<div class="pin"><span>Recipient's delivery PIN</span><strong>${p.pin}</strong></div>`}
       <section class="card stack"><h2 class="h" style="margin:0">Package info</h2>
-        <dl class="kv"><div><dt>From</dt><dd>${esc(p.origin.addr)}</dd></div><div><dt>To</dt><dd>${esc(p.dest.addr)}</dd></div><div><dt>Recipient</dt><dd>${esc(p.dest.name)} · ${esc(p.dest.phone)}</dd></div><div><dt>Items</dt><dd class="o">${esc(p.items)}, ${p.kg} kg</dd></div><div class="tot"><dt>Total charge</dt><dd><b>${naira(p.fare.total)}</b></dd></div></dl>
+        <dl class="kv"><div><dt>From</dt><dd>${esc(p.origin.addr)}</dd></div><div><dt>To</dt><dd>${esc(p.dest.addr)}</dd></div><div><dt>Recipient</dt><dd>${esc(p.dest.name)} · ${esc(p.dest.phone)}</dd></div><div><dt>Items</dt><dd class="o">${esc(p.items)}, ${p.kg} kg</dd></div><div><dt>Payment</dt><dd>${escrowOf(p).state === "HELD" ? "Held in escrow until the PIN is confirmed" : escrowOf(p).state === "RELEASED" ? "Released to the rider" : "Refunded to your wallet"}</dd></div><div class="tot"><dt>Total charge</dt><dd><b>${naira(p.fare.total)}</b></dd></div></dl>
         ${canCancel ? `<button class="btn btn--danger btn--sm" data-act="cancel" data-id="${p.id}">Cancel delivery</button>` : ""}</section>
     </div></div>`,
     };
@@ -1061,6 +1115,26 @@
     };
   };
 
+  function escrowCard() {
+    const list = mine()
+      .filter((p) => p.status !== "DRAFT")
+      .slice(0, 8);
+    const held = heldFor(mine());
+    const label = { HELD: "Held", RELEASED: "Released to rider", REFUNDED: "Refunded" };
+    const cls = { HELD: "st--IN_TRANSIT", RELEASED: "st--DELIVERED", REFUNDED: "st--CANCELLED" };
+    return `<section class="card stack"><div class="row row--sb wrap"><h2 class="h" style="margin:0">${ic("shield")} Escrow</h2><b>${naira(held)} held</b></div>
+      <p class="mute" style="margin:0;font-size:14px">When you pay, the money is held safely by AiMove. It is released to the rider automatically the moment your recipient gives them the 4-digit delivery PIN. Cancel before pickup and it comes straight back to your wallet.</p>
+      ${
+        list.length
+          ? `<ul class="list">${list
+              .map((p) => {
+                const e = escrowOf(p);
+                return `<li><span class="ava ava--soft">${ic("box")}</span><a class="grow" href="#/track/${p.id}"><b>${esc(p.items)}</b><small>${esc(p.tracking)} · ${e.state === "HELD" ? "PIN " + esc(p.pin) + " · release on delivery" : e.state === "RELEASED" ? "released " + esc(fmtDay(e.releasedAt || p.history.slice(-1)[0][1])) : "refunded to wallet"}</small></a><span class="st ${cls[e.state]}">${label[e.state]}</span><span class="amt">${naira(e.amount)}</span></li>`;
+              })
+              .join("")}</ul>`
+          : `<p class="mute" style="margin:0">Nothing in escrow yet.</p>`
+      }</section>`;
+  }
   V.wallet = (q) => {
     const credits = S.tx.filter((t) => t.amt > 0).reduce((a, t) => a + t.amt, 0);
     const debits = S.tx.filter((t) => t.amt < 0).reduce((a, t) => a + t.amt, 0);
@@ -1069,6 +1143,7 @@
       title: "Wallet",
       html: `<div class="cols"><div class="stack">
       <section class="bal"><div class="row row--sb"><small>${esc(S.user.name)} · current balance</small><button class="ibtn" style="background:rgba(255,255,255,.16);border:0;color:#fff;width:36px;height:36px" data-act="hide-bal" aria-label="${S.hideBal ? "Show" : "Hide"} balance">${ic(S.hideBal ? "eye" : "eye-off")}</button></div><strong>${S.hideBal ? "₦ ••••••" : naira(S.wallet, 2)}</strong></section>
+      ${escrowCard()}
       <section class="card stack"><h2 class="h center" style="margin:0">Top up</h2><div class="topup"><button data-act="topup" data-m="bank">${ic("bank")}Bank</button><button data-act="topup" data-m="transfer">${ic("swap")}Transfer</button><button data-act="topup" data-m="card">${ic("card")}Card</button></div></section>
       <section class="card"><div class="row row--sb wrap" style="margin-bottom:8px"><h2 class="h" style="margin:0">Transaction history</h2><button class="btn btn--ghost btn--sm" data-act="csv">${ic("download")}Statement</button></div>
         <div class="grid2" style="margin:8px 0"><div class="card card--flat"><small class="mute">Total credits</small><b class="amt" style="display:block">+${naira(credits, 2)}</b></div><div class="card card--flat"><small class="mute">Total debits</small><b class="amt amt--neg" style="display:block">${naira(debits, 2)}</b></div></div>
@@ -1180,8 +1255,8 @@
     const f = q.get("f") || "all";
     const task = S.packages.find((p) => p.rider === "me" && ["ASSIGNED", "PICKED_UP", "IN_TRANSIT"].includes(p.status));
     let open = S.packages.filter((p) => p.status === "REQUESTED" && !p.rider);
-    if (f === "high") open = open.filter((p) => p.fare.total > 3500);
-    if (f === "express") open = open.filter((p) => p.type === "INSTANT");
+    if (f === "high") open = open.filter((p) => riderShareOf(p) > 3000);
+    if (f === "express") open = open.filter((p) => isFast(p.type));
     const step =
       task &&
       {
@@ -1219,7 +1294,7 @@
                   .map(
                     (
                       p,
-                    ) => `<article class="job"><div class="row row--sb wrap"><span class="st ${p.type === "INSTANT" ? "st--CANCELLED" : "st--REQUESTED"}">${p.type === "INSTANT" ? "Express" : "Same day"}</span><span class="pay">${naira(p.fare.total)}</span></div>
+                    ) => `<article class="job"><div class="row row--sb wrap"><span class="st ${isFast(p.type) ? "st--CANCELLED" : "st--REQUESTED"}">${esc(serviceName(p.type))}</span><span class="pay">${naira(riderShareOf(p))}</span></div>
             <b>${esc(p.items)}</b><ul class="route-mini"><li>${ic("target")}<span>${esc(p.origin.addr)}</span></li><li>${ic("pin")}<span>${esc(p.dest.addr)}</span></li></ul>
             <div class="row row--sb wrap"><span class="mute">${p.km} km · ${p.kg} kg · worth ${naira(p.worth)}</span><button class="btn btn--sm" data-act="accept" data-id="${p.id}">Accept order &amp; start pickup</button></div></article>`,
                   )
@@ -1232,11 +1307,14 @@
   };
   V.riderEarn = () => {
     const done = S.packages.filter((p) => p.rider === "me" && p.status === "DELIVERED");
+    const pending = S.packages.filter((p) => p.rider === "me" && ACTIVE.includes(p.status));
+    const pendingAmt = pending.reduce((a, p) => a + riderShareOf(p), 0);
     return {
       title: "Earnings",
       html: `<div class="cols"><div class="stack">
+      <section class="card stack"><div class="row row--sb wrap"><h2 class="h" style="margin:0">${ic("shield")} Pending in escrow</h2><b>${naira(pendingAmt)}</b></div><p class="mute" style="margin:0;font-size:14px">Your ${Math.round(PRICING.CONFIG.riderShare * 100)}% share of each active delivery is held in escrow and lands in your balance as soon as you enter the recipient's 4-digit PIN. No approval needed.</p></section>
       <section class="earn"><small>Available earnings balance</small><strong>${naira(S.rider.balance)}</strong><button class="btn btn--o btn--sm" data-act="withdraw" ${S.rider.balance <= 0 ? "disabled" : ""}>${ic("bank")}Withdraw to bank</button></section>
-      <section class="card"><h2 class="h">Completed deliveries</h2>${done.length ? `<ul class="list">${done.map((p) => `<li><span class="ava ava--soft">${ic("box")}</span><div class="grow"><b>${esc(p.items)}</b><small>${esc(p.tracking)} · ${esc(fmtDay(p.history.slice(-1)[0][1]))}</small></div><span class="amt">+${naira(p.fare.total)}</span></li>`).join("")}</ul>` : `<p class="mute">Deliveries you complete in this app appear here.</p>`}</section>
+      <section class="card"><h2 class="h">Completed deliveries</h2>${done.length ? `<ul class="list">${done.map((p) => `<li><span class="ava ava--soft">${ic("box")}</span><div class="grow"><b>${esc(p.items)}</b><small>${esc(p.tracking)} · ${esc(fmtDay(p.history.slice(-1)[0][1]))}</small></div><span class="amt">+${naira(riderShareOf(p))}</span></li>`).join("")}</ul>` : `<p class="mute">Deliveries you complete in this app appear here.</p>`}</section>
       <section class="card"><h2 class="h">Payouts</h2>${S.rider.payouts.length ? `<ul class="list">${S.rider.payouts.map((w) => `<li><span class="ava ava--soft">${ic("bank")}</span><div class="grow"><b>Withdrawal</b><small>${esc(w.to)} · ${esc(fmtDay(w.at))}</small></div><span class="amt amt--neg">−${naira(w.amt)}</span></li>`).join("")}</ul>` : `<p class="mute">No payouts yet.</p>`}</section></div>
       <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Payout account</h2>${S.bank ? `<p><b>${esc(S.bank.bank)}</b><br><span class="mute">${esc(S.bank.acct)} · ${esc(S.bank.name)}</span></p>` : `<p class="mute">Add the bank account your earnings go to.</p>`}<button class="btn btn--line btn--sm" data-act="bank">${S.bank ? "Change account" : "Add bank account"}</button></section></aside></div>`,
     };
@@ -1245,7 +1323,11 @@
   // ------------------------------------------------------------ operations views
   V.ops = () => {
     const P = S.packages;
-    const rev = P.filter((p) => p.status !== "CANCELLED").reduce((a, p) => a + p.fare.total, 0);
+    const rev = P.filter((p) => escrowOf(p).state === "RELEASED").reduce(
+      (a, p) => a + (p.fare.total - riderShareOf(p)),
+      0,
+    );
+    const held = heldFor(P);
     const all = [ME_RIDER, ...RIDERS];
     const coords = (r) => {
       const h = hash(r.id + Math.floor(now() / 60000));
@@ -1258,7 +1340,8 @@
         ["Packages", P.length],
         ["Active", P.filter((p) => ACTIVE.includes(p.status)).length],
         ["Delivered", P.filter((p) => p.status === "DELIVERED").length],
-        ["Revenue", naira(rev)],
+        ["AiMove earnings", naira(rev)],
+        ["Held in escrow", naira(held)],
         ["Riders online", RIDERS.length + (S.rider.online ? 1 : 0)],
       ]
         .map(([k, v]) => `<div class="card kpi"><small>${k}</small><b>${v}</b></div>`)
@@ -1271,7 +1354,7 @@
               p,
             ) => `<tr><td class="mono">${esc(p.tracking)}</td><td>${esc(p.byName)}</td><td>${esc(p.origin.addr.split(",")[0])} → ${esc(p.dest.addr.split(",")[0])}</td><td>${naira(p.fare.total)}</td><td>${chip(p.status)}</td>
           <td><select data-act="assign" data-id="${p.id}" aria-label="Assign rider for ${esc(p.tracking)}" ${["DELIVERED", "CANCELLED"].includes(p.status) ? "disabled" : ""}><option value="">Unassigned</option>${all.map((r) => `<option value="${r.id}" ${p.rider === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></td>
-          <td>${FLOW.indexOf(p.status) > -1 && p.status !== "DELIVERED" ? `<button class="btn btn--ghost btn--sm" data-act="advance" data-id="${p.id}">Advance</button>` : ""}</td></tr>`,
+          <td>${FLOW.indexOf(p.status) > -1 && !["DELIVERED", "IN_TRANSIT"].includes(p.status) ? `<button class="btn btn--ghost btn--sm" data-act="advance" data-id="${p.id}">Advance</button>` : p.status === "IN_TRANSIT" ? `<small class="mute">Awaiting PIN</small>` : ""}</td></tr>`,
           )
           .join("")}</tbody></table></section>
       <section class="card tbl"><h2 class="h" style="padding-top:8px">Rider fleet · live GPS</h2><table><thead><tr><th>Rider</th><th>Vehicle</th><th>Plate</th><th>Rating</th><th>Location</th><th>Battery</th><th>Last ping</th></tr></thead><tbody>
@@ -1531,19 +1614,19 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
     if (a === "tag") b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
     if (a === "cancel") {
       const p = pkgById(id);
-      if (!confirm("Cancel this delivery? The fare goes back to your wallet.")) return;
+      if (!confirm("Cancel this delivery? The payment held in escrow goes back to your wallet.")) return;
       setStatus(p, "CANCELLED");
-      S.wallet += p.fare.total;
-      S.tx.unshift({ id: "t" + now(), title: "Refund", sub: p.tracking, amt: p.fare.total, at: now() });
+      refundEscrow(p);
       save();
       render();
-      toast("Delivery cancelled and refunded");
+      toast("Delivery cancelled. Escrow refunded to your wallet");
     }
     if (a === "advance") {
       const p = pkgById(id);
       if (p.status === "SCHEDULED") setStatus(p, "REQUESTED");
       else {
         const nx = FLOW[FLOW.indexOf(p.status) + 1];
+        if (nx === "DELIVERED") return toast("Deliveries are completed by the rider with the recipient's 4-digit PIN.");
         if (nx === "ASSIGNED" && !p.rider) p.rider = RIDERS.slice().sort((x, y) => x.km - y.km)[0].id;
         if (nx) setStatus(p, nx);
       }
@@ -1689,10 +1772,19 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
             : [["REQUESTED", now()]],
       });
       p.fare = d.fare;
+      p.escrow = {
+        state: "HELD",
+        amount: d.fare.total,
+        riderShare: d.fare.riderShare,
+        heldAt: now(),
+        via: m === "wallet" ? "wallet" : "card",
+      };
       S.packages.unshift(p);
       if (m === "wallet") {
         S.wallet -= d.fare.total;
-        S.tx.unshift({ id: "t" + now(), title: "Delivery fee", sub: p.tracking, amt: -d.fare.total, at: now() });
+        S.tx.unshift({ id: "t" + now(), title: "Paid into escrow", sub: p.tracking, amt: -d.fare.total, at: now() });
+      } else {
+        S.tx.unshift({ id: "t" + now(), title: "Card payment into escrow", sub: p.tracking, amt: 0, at: now() });
       }
       log(
         "POST",
@@ -1769,12 +1861,18 @@ POST /api/v1/webhooks/status_update</pre></section></aside></div>`,
     },
     pod(f) {
       const p = pkgById(f.dataset.id);
-      if (f.pin.value !== p.pin) return err(f, "That PIN doesn't match. Ask the recipient again.");
+      if ((p.pinTries || 0) >= 5)
+        return err(f, "Too many wrong PINs. Contact AiMove support to complete this delivery.");
+      if (f.pin.value !== p.pin) {
+        p.pinTries = (p.pinTries || 0) + 1;
+        save();
+        return err(f, `That PIN doesn't match. Ask the recipient again (${5 - p.pinTries} tries left).`);
+      }
       setStatus(p, "DELIVERED");
       save();
       closeModal();
       render();
-      toast(`Delivered. ${naira(p.fare.total)} added to your earnings.`);
+      toast(`Delivered. ${naira(escrowOf(p).riderShare)} released from escrow to your earnings.`);
     },
     bank(f) {
       if (!/^\d{10}$/.test(f.acct.value)) return err(f, "Account numbers have 10 digits.");

@@ -8732,3 +8732,172 @@ ul {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* AiMove fare calculator (RehoTrans pricing) */
+.fc {
+  display: grid;
+  gap: 14px;
+}
+.fc__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.fc label > span,
+.fc legend {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--am-grey);
+  margin-bottom: 6px;
+}
+.fc input[type="number"],
+.fc select {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 11px 12px;
+  border: 1.5px solid var(--am-line);
+  border-radius: 12px;
+  background: #f8faff;
+  color: inherit;
+  min-height: 46px;
+}
+.fc input:focus-visible,
+.fc select:focus-visible {
+  outline: 3px solid rgba(2, 86, 255, 0.3);
+  border-color: var(--am);
+}
+.fc__svc {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.fc__svc legend {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+.fc__svc label {
+  position: relative;
+  cursor: pointer;
+}
+.fc__svc input {
+  position: absolute;
+  opacity: 0;
+}
+.fc .fc__svc label > span {
+  margin: 0;
+  font-weight: 400;
+  color: inherit;
+  font-size: inherit;
+  display: grid;
+  gap: 2px;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--am-line);
+  border-radius: 12px;
+}
+.fc__svc b {
+  font-size: 15px;
+}
+.fc__svc small {
+  font-size: 12px;
+  color: var(--am-grey);
+}
+.fc__svc input:checked + span {
+  border-color: var(--am);
+  background: #eef4ff;
+  box-shadow: 0 0 0 3px rgba(2, 86, 255, 0.12);
+}
+.fc__svc input:focus-visible + span {
+  outline: 3px solid rgba(2, 86, 255, 0.35);
+}
+.fc__peak {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--am-grey);
+}
+.fc__peak input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--am);
+  flex: none;
+}
+.fc__out {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--am-line);
+}
+.fc__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fc__total small {
+  color: var(--am-grey);
+  font-size: 13px;
+}
+.fc__total b {
+  font-size: clamp(30px, 5vw, 40px);
+  color: var(--am);
+  letter-spacing: -0.02em;
+}
+.fc__lines {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.fc__lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--am-grey);
+}
+.fc__lines b {
+  color: var(--am-ink, #0b1b36);
+  white-space: nowrap;
+}
+.fc__split {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--am-grey);
+  background: #f5f8ff;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+.rt-price-wrap {
+  align-items: start;
+}
+.rt-rates {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+.rt-rates table {
+  min-width: 420px;
+  font-size: 14px;
+}
+.rt-rates td small {
+  display: block;
+  font-size: 12px;
+  color: var(--am-grey);
+}
+.rt-rates td:last-child {
+  color: var(--am);
+}
+@media (max-width: 420px) {
+  .fc__grid,
+  .fc__svc {
+    grid-template-columns: 1fr;
+  }
+}

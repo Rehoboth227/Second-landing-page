@@ -38,7 +38,9 @@ DEPLOY.md                      Step-by-step cPanel setup for the account system
 assets/css/styles.css          All styles (one file, design tokens at the top)
 assets/js/main.js              Shared interactions: menu, scroll reveal, counters
 assets/css/aimove-app.css      AiMove web app styles (light and dark)
-assets/js/aimove-app.js        AiMove web app: data, pricing, routing and every screen
+assets/js/aimove-app.js        AiMove web app: data, escrow wallet, routing and every screen
+assets/js/aimove-pricing.js    AiMove fare calculator (naira): rates, markups, commission, used everywhere
+assets/js/aimove-calculator.js Public fare calculator widget on the RehoTrans page
 assets/css/greenfed-app.css    GreenFed web app styles (light and dark)
 assets/js/greenfed-app.js      GreenFed web app: meal library, catalogue, pricing, routing and every screen
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
@@ -70,8 +72,8 @@ is the quickest way.
   `.theme-am` (AiMove), `.theme-ar` (AiRise) and `.theme-rh` (Rheti).
 - **Breakpoints:** the layout adapts at 1100, 1024, 960, 860, 760, 600, 560, 520 and 480px.
   Every page has been checked at 320, 360, 390, 768, 1024 and 1440px with no horizontal scrolling.
-- **AiMove prices** in `assets/js/aimove-app.js` (and the price table on the RehoTrans page) mirror the
-  AiMove Android app's pricing engine: update them together.
+- **AiMove prices** live in one file, `assets/js/aimove-pricing.js` (the `CONFIG` block at the top). The AiMove
+  app and the fare calculator on the RehoTrans page both read it, so changing a number there changes it everywhere.
 - **Formatting:** files are formatted with Prettier (`npx prettier --print-width 120 --write .`).
 
 ## AiRise app pages
@@ -95,6 +97,30 @@ several roles can switch between their own roles only.
 Sign-in and roles are real (see "Accounts and roles"). Deliveries, wallet and payouts are still saved per
 account on the device; payments, maps and calls are simulated, and other riders, distances and GPS positions
 are sample data until bookings are connected to the database.
+
+## AiMove pricing and escrow
+
+AiMove fares follow how Nigerian ride-hailing and logistics services price trips (Bolt and Gokada:
+base + per km + per minute with a minimum fare; GIG Logistics: weight brackets):
+
+|                                 | Motorcycle (≤10 kg) | Car (≤50 kg) | Van (≤1,000 kg) |
+| ------------------------------- | ------------------- | ------------ | --------------- |
+| Base fare                       | ₦500                | ₦1,000       | ₦3,000          |
+| Per km (first 30 km, then half) | ₦120                | ₦200         | ₦400            |
+| Per minute                      | ₦15                 | ₦25          | ₦40             |
+| Minimum fare                    | ₦1,200              | ₦2,500       | ₦6,000          |
+
+Plus a weight charge above 5 kg (₦300 / ₦700 / ₦1,500, then ₦30 per kg above 50 kg), fixed markups for
+**Express (+₦800, within 3 hours)** and **Instant (+₦1,500, pickup now)**, ×1.25 on distance and time at peak
+hours (7–10am, 5–8pm), a ₦200 booking fee, 0.5% goods protection for items worth over ₦50,000 (capped at
+₦5,000), rounded up to ₦50. Riders keep 85% of the delivery fare; AiMove's commission is 15%.
+
+Every payment, from the wallet or by card, is held in **escrow**. When the rider enters the recipient's
+4-digit PIN, the escrow is released automatically to the rider's earnings (their 85% share): no
+administrator approval. Five wrong PINs lock the delivery until support helps. Cancelling before pickup
+refunds the escrow to the customer's wallet. Operations staff can move a delivery along but cannot mark it
+delivered; only the PIN does that. In this preview the wallet and escrow are kept on the device; when
+bookings move to the server, the server must hold the escrow and recalculate every price itself.
 
 ## GreenFed web app
 

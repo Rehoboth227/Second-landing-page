@@ -263,9 +263,9 @@
       <section class="rt-stats-wrap">
         <div class="container">
           <ul class="rt-stats reveal">
-            <li><b>₦800</b><span>Base booking fee</span></li>
-            <li><b>₦120–₦300</b><span>Per km, by package weight</span></li>
-            <li><b>+₦300</b><span>Instant express pickup</span></li>
+            <li><b>₦120–₦400</b><span>Per km, by vehicle</span></li>
+            <li><b>+₦800 / +₦1,500</b><span>Express / Instant, fixed</span></li>
+            <li><b>Escrow</b><span>Rider paid on PIN confirmation</span></li>
             <li><b>4 stages</b><span>Live tracking to your door</span></li>
           </ul>
         </div>
@@ -450,8 +450,9 @@
             <span class="eyebrow">Pricing</span>
             <h2 class="title bar" style="margin-top: 16px">A guaranteed price before you book.</h2>
             <p class="lead" style="margin-top: 22px">
-              Every fare is the base booking fee, plus distance at a rate set by weight, plus any peak-hour or express
-              charge. You see the total in AiMove before you pay.
+              Like the ride-hailing apps you already use, every fare is a base fare plus distance and time, set by the
+              vehicle your package needs. Heavier items add a weight charge, Express and Instant add a fixed amount, and
+              peak hours add 25% to distance and time. Try it below: it's the same calculator AiMove uses.
             </p>
             <div class="hero__ctas">
               <a class="btn am2-cta" href="../products/aimove.html#/send"
@@ -471,46 +472,14 @@
             </div>
           </div>
           <div class="rt-price reveal" style="--d: 0.1s">
-            <table>
-              <caption class="sr-only">
-                Rate per kilometre by package weight
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Package weight</th>
-                  <th scope="col">Class</th>
-                  <th scope="col">Rate per km</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Up to 5 kg</td>
-                  <td>Light parcel</td>
-                  <td>₦120</td>
-                </tr>
-                <tr>
-                  <td>Up to 20 kg</td>
-                  <td>Medium cargo</td>
-                  <td>₦160</td>
-                </tr>
-                <tr>
-                  <td>Up to 50 kg</td>
-                  <td>Heavy freight</td>
-                  <td>₦220</td>
-                </tr>
-                <tr>
-                  <td>Over 50 kg</td>
-                  <td>Extra heavy</td>
-                  <td>₦300</td>
-                </tr>
-              </tbody>
-            </table>
+            <div data-fare-calc></div>
+            <div data-fare-rates class="rt-rates"></div>
             <ul class="rt-extras">
-              <li><span>Base booking fee</span><b>₦800</b></li>
-              <li><span>Peak hours (7–10am, 5–8pm)</span><b>+₦350</b></li>
-              <li><span>Instant express</span><b>+₦300</b></li>
+              <li><span>Weight 5–10 kg / 10–20 kg / 20–50 kg</span><b>+₦300 / +₦700 / +₦1,500</b></li>
+              <li><span>After the first 30 km (interstate)</span><b>Half the per-km rate</b></li>
+              <li><span>Booking fee, per order</span><b>₦200</b></li>
+              <li><span>Items worth over ₦50,000</span><b>0.5% protection</b></li>
             </ul>
-            <p class="rt-eg">Example: 14.5 km, 5 kg, same-day, off-peak = ₦800 + 14.5 × ₦120 = <b>₦2,540</b></p>
           </div>
         </div>
       </section>
@@ -533,8 +502,8 @@
               <path d="M15 6h3l2 6M5.5 17.5 9 10h6l3.5 7.5M9 10 7 6H4" />
             </svg>
             <div>
-              <b>Instant express <em>+₦300</em></b
-              ><span>Picked up right away for urgent deliveries.</span>
+              <b>Instant <em>+₦1,500</em></b
+              ><span>Picked up right away and taken straight there. Express (+₦800) arrives within 3 hours.</span>
             </div>
           </div>
           <div class="reveal" style="--d: 0.07s">
@@ -1360,5 +1329,7 @@
       </div>
     </footer>
     <script src="../assets/js/main.js" defer></script>
+    <script src="../assets/js/aimove-pricing.js" defer></script>
+    <script src="../assets/js/aimove-calculator.js" defer></script>
   </body>
 </html>
