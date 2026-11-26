@@ -9,9 +9,11 @@ every page is a finished `.html` file you can edit directly. To put the account 
 
 ```
 index.html                     Home page: hero, about, mission/vision, services, products, contact
-services/<name>.html           One page per subsidiary (10): Rheti, RehoCon, RehoFarm, RehoTrans,
-                               RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive
-products/aipay.html            AiPay: e-store with built-in payments
+services/<name>.html           One page per subsidiary (11): Rheti, RehoCon, RehoFarm, RehoTrans,
+                               RehoArts, RehoEvent, RehoFac, RehoDez, RehoTex, RehoGive, Havibank
+services/havibank.html         Havibank, the digital financial institution: the AiPay design plus the
+                               roadmap (AiPay live; payments and banking in progress)
+products/aipay.html            AiPay sign-in gateway: sign in or register, then open aipay.rehohub.com
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
 services/rheti/                Rheti service site (the employability website, moved here from AiRise):
@@ -178,7 +180,7 @@ and the navy and gold of AiRise and Rheti (Rheti uses Poppins, per its brand gui
 
 ## Before launch
 
-- The App Store / Google Play links are placeholders. AiPay buttons open account sign-up until its web app exists.
+- The App Store / Google Play links are placeholders. AiPay buttons open the AiPay gateway; AiPay still has its own sign-in at aipay.rehohub.com until single sign-on is connected.
 - AiMove, AiRise and Rheti have no product email yet and use info@rehohub.com.
 - The AiRise assessment page publishes only the structure and rules of the assessments.
   Keep answer keys, model answers and marking guides out of this public site.

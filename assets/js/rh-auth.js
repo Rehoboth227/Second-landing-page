@@ -29,7 +29,7 @@
   // Where each approved role opens
   const OPEN = {
     "aipay:customer": "products/aipay.html",
-    "aipay:merchant": "products/aipay.html#sell",
+    "aipay:merchant": "products/aipay.html",
     "aimove:customer": "products/aimove.html",
     "aimove:rider": "products/aimove.html",
     "aimove:admin": "products/aimove.html",

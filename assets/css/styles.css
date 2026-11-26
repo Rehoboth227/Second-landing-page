@@ -939,6 +939,10 @@ ul {
 .svc--full img {
   object-position: center 40%;
 }
+.svc--half {
+  grid-column: span 6;
+  min-height: 320px;
+}
 .svc img {
   position: absolute;
   inset: 0;
@@ -1062,7 +1066,8 @@ ul {
 @media (max-width: 640px) {
   .svc,
   .svc--wide,
-  .svc--full {
+  .svc--full,
+  .svc--half {
     grid-column: span 12;
     min-height: 300px;
   }
@@ -1931,6 +1936,43 @@ ul {
   .tiers {
     grid-template-columns: 1fr;
   }
+}
+/* Havibank roadmap */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status--live {
+  background: #e3f7ea;
+  color: #11733a;
+}
+.status--wip {
+  background: #fff4d1;
+  color: #8a5a00;
+}
+.roadmap__note {
+  margin: 24px 0 0;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+  font-size: 15px;
 }
 
 .ticks {
