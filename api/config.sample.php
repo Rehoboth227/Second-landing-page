@@ -61,6 +61,16 @@ return [
         'storage_dir'      => '',
         'max_upload_mb'    => 500,
         'trainer_quota_mb' => 5000,
+        'learner_quota_mb' => 200,      // space for each learner's portfolio documents
+    ],
+
+    // AiPay digital products (e-books, audiobooks) uploaded by sellers. Same idea as AiRise:
+    // best outside public_html, e.g. '/home/YOUR_CPANEL_USERNAME/aipay-files'.
+    // Leave '' to use public_html/api/storage/aipay.
+    'aipay' => [
+        'storage_dir'       => '',
+        'max_upload_mb'     => 100,
+        'merchant_quota_mb' => 2000,
     ],
 
     // Where to send "new application waiting for approval" alerts. Leave '' to skip.

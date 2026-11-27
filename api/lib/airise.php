@@ -10,10 +10,15 @@
  * browser, once every lesson of a course is finished; trainer-course quizzes are marked here and
  * their answers are never sent to learners.
  *
- * Files: trainers upload cover pictures and lesson files in 4 MB pieces (so cPanel's usual
- * upload limits are fine). They are kept in a private folder (config 'airise.storage_dir',
+ * Files: trainers upload cover pictures and lesson files, and learners upload portfolio documents,
+ * in 4 MB pieces (api/lib/uploads.php). They are kept in a private folder (config 'airise.storage_dir',
  * default api/storage/airise, which api/storage/.htaccess blocks) and only handed out through
  * airise/file to people allowed to see them.
+ *
+ * Portfolios: a learner records their course of study, grades and preferred career path, and files
+ * documents into four folders. AiRise administrators verify documents. A score out of 100 (AiRise
+ * certificates, grades, verified documents and a complete profile) ranks learners within their career
+ * path, and approved employers can search learners who chose to show their portfolio.
  */
 declare(strict_types=1);
 
@@ -30,15 +35,29 @@ const AIR_SERIES = [
     'self-awareness' => [9, 'Self-Awareness', 21, 4],
     'the-hack' => [10, 'The Hack: 10 Days to Build a Business That Lasts', 10, 4],
 ];
-const AIR_CHUNK = 4194304; // bytes per upload piece
-// extension => [mime, what it may be used for]
-const AIR_TYPES = [
-    'mp4' => ['video/mp4', 'lesson'], 'm4v' => ['video/mp4', 'lesson'], 'webm' => ['video/webm', 'lesson'], 'mov' => ['video/quicktime', 'lesson'],
-    'mp3' => ['audio/mpeg', 'lesson'], 'm4a' => ['audio/mp4', 'lesson'], 'wav' => ['audio/wav', 'lesson'], 'ogg' => ['audio/ogg', 'lesson'],
-    'pdf' => ['application/pdf', 'lesson'],
-    'ppt' => ['application/vnd.ms-powerpoint', 'lesson'], 'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'lesson'],
-    'doc' => ['application/msword', 'lesson'], 'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'lesson'],
-    'jpg' => ['image/jpeg', 'cover'], 'jpeg' => ['image/jpeg', 'cover'], 'png' => ['image/png', 'cover'], 'webp' => ['image/webp', 'cover'],
+// What each upload may be: extensions accepted (see UP_MIME in uploads.php).
+const AIR_USES = [
+    'lesson' => ['mp4', 'm4v', 'webm', 'mov', 'mp3', 'm4a', 'wav', 'ogg', 'pdf', 'ppt', 'pptx', 'doc', 'docx'],
+    'cover' => ['jpg', 'jpeg', 'png', 'webp'],
+    'portfolio' => ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
+];
+const AIR_FOLDERS = [
+    'results' => 'Academic results', 'certificates' => 'Certificates and awards',
+    'projects' => 'Projects and work samples', 'references' => 'References and recommendations',
+];
+// Career paths: label, the series courses that matter most (in order), and words that match trainer courses.
+const AIR_CAREERS = [
+    'data' => ['Data and business analysis', ['problem-solving', 'continuous-learning', 'communication-skills'], ['data', 'excel', 'analys', 'sql', 'statistic', 'power bi']],
+    'software' => ['Software and IT', ['problem-solving', 'continuous-learning', 'teamwork-and-collaboration'], ['software', 'coding', 'program', 'developer', 'web', 'it support', 'computer']],
+    'customer' => ['Customer service', ['communication-skills', 'adaptability', 'work-ethics-and-reliability'], ['customer', 'service', 'call centre', 'support']],
+    'sales' => ['Sales and marketing', ['networking-and-interpersonal-skills', 'communication-skills', 'initiative-and-proactivity'], ['sales', 'marketing', 'brand', 'social media', 'digital']],
+    'operations' => ['Project and operations management', ['teamwork-and-collaboration', 'work-ethics-and-reliability', 'problem-solving'], ['project', 'operations', 'management', 'logistics', 'supply']],
+    'finance' => ['Finance and accounting', ['work-ethics-and-reliability', 'problem-solving', 'continuous-learning'], ['finance', 'account', 'bank', 'audit', 'excel']],
+    'hr' => ['Human resources', ['communication-skills', 'self-awareness', 'teamwork-and-collaboration'], ['human resource', 'hr', 'recruit', 'people']],
+    'teaching' => ['Teaching and training', ['communication-skills', 'self-awareness', 'adaptability'], ['teach', 'training', 'education', 'facilitat']],
+    'health' => ['Healthcare', ['work-ethics-and-reliability', 'communication-skills', 'teamwork-and-collaboration'], ['health', 'nurs', 'care', 'medical', 'pharma']],
+    'business' => ['Entrepreneurship', ['the-hack', 'initiative-and-proactivity', 'networking-and-interpersonal-skills'], ['business', 'entrepreneur', 'startup', 'small business']],
+    'other' => ['Other', ['communication-skills', 'problem-solving', 'adaptability'], []],
 ];
 const AIR_LESSON_TYPES = ['Video', 'Document', 'Reading', 'Practice activity', 'Live session'];
 const AIR_TRACKS = ['Employability skill', 'Career readiness', 'Technical skill', 'Entrepreneurship', 'Other'];
@@ -49,9 +68,10 @@ function air_cfg(): array
 {
     $c = config()['airise'] ?? [];
     return [
-        'dir' => rtrim((string) ($c['storage_dir'] ?? '') ?: dirname(__DIR__) . '/storage/airise', '/'),
+        'dir' => up_dir('airise'),
         'max' => max(1, (int) ($c['max_upload_mb'] ?? 500)) * 1048576,
         'quota' => max(1, (int) ($c['trainer_quota_mb'] ?? 5000)) * 1048576,
+        'learner_quota' => max(1, (int) ($c['learner_quota_mb'] ?? 200)) * 1048576,
     ];
 }
 
@@ -62,6 +82,7 @@ function air_access(int $uid): array
     foreach (q("SELECT role FROM memberships WHERE user_id = ? AND product = 'airise' AND status = 'approved'", [$uid])->fetchAll() as $m) {
         if ($m['role'] === 'customer') $roles[] = 'learner';
         if ($m['role'] === 'trainer') $roles[] = 'trainer';
+        if ($m['role'] === 'employer') $roles[] = 'employer';
     }
     if (in_array('airise', admin_products($uid), true)) $roles[] = 'admin';
     return array_values(array_unique($roles));
@@ -169,7 +190,7 @@ function air_maybe_certify(int $uid, string $key, array $info): ?string
 
 function air_file_out(?array $f): ?array
 {
-    return $f ? ['id' => (int) $f['id'], 'name' => $f['name'], 'mime' => $f['mime'], 'size' => (int) $f['size']] : null;
+    return up_file_out($f);
 }
 
 // ------------------------------------------------------------------ state
@@ -197,6 +218,10 @@ function r_air_state(): never
         'quizzes' => array_map(fn ($a) => ['course' => $a['course'], 'score' => (int) $a['score'], 'total' => (int) $a['total'], 'passed' => (bool) $a['passed'], 'at' => $a['created_at']],
             q('SELECT * FROM airise_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 100', [$uid])->fetchAll()),
     ];
+    if (in_array('learner', $roles, true)) {
+        $out['rank'] = air_rank($uid);
+        $out['suggest'] = air_suggest($uid);
+    }
     if (in_array('trainer', $roles, true)) {
         $out['mine'] = array_map(function ($c) {
             $d = json_decode($c['data'], true) ?: [];
@@ -291,7 +316,7 @@ function air_clean_course(array $in, int $uid): array
         $r = row('SELECT * FROM airise_files WHERE id = ? AND owner_id = ? AND received = size', [$id, $uid]);
         if (!$r) return null;
         $ext = strtolower(pathinfo($r['name'], PATHINFO_EXTENSION));
-        if ((AIR_TYPES[$ext][1] ?? '') !== $use) return null;
+        if (!in_array($ext, AIR_USES[$use], true)) return null;
         return air_file_out($r);
     };
     $mods = [];
@@ -376,78 +401,39 @@ function r_air_course_save(): never
     ok(['id' => $id, 'message' => $submit ? 'Submitted for review. AiRise will reply within 5 working days.' : 'Draft saved']);
 }
 
-// ------------------------------------------------------------------ trainers: files
+// ------------------------------------------------------------------ files (trainers and learners)
 function r_air_upload_start(): never
 {
-    [$u] = air_require('trainer');
+    [$u, $roles] = air_require('trainer', 'learner');
     $uid = (int) $u['id'];
     rate_limit('air-up:' . $uid, 200, 3600);
     $cfg = air_cfg();
-    $name = preg_replace('/[^\p{L}\p{N} ._()-]/u', '_', str_in('name', 160)) ?: 'file';
-    $size = (int) (input()['size'] ?? 0);
-    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $use = str_in('use', 10) === 'cover' ? 'cover' : 'lesson';
-    if (!isset(AIR_TYPES[$ext]) || AIR_TYPES[$ext][1] !== $use) {
-        fail(422, 'invalid', $use === 'cover' ? 'Use a JPG, PNG or WebP picture for the cover.' : 'Use a video (MP4, WebM, MOV), audio (MP3, M4A, WAV), PDF, slides or a Word document.');
-    }
-    $max = $use === 'cover' ? min($cfg['max'], 5 * 1048576) : $cfg['max'];
-    if ($size < 1 || $size > $max) fail(422, 'invalid', 'That file is too large. The limit is ' . (int) ($max / 1048576) . ' MB.');
-    $used = (int) row('SELECT COALESCE(SUM(size), 0) n FROM airise_files WHERE owner_id = ?', [$uid])['n'];
-    if ($used + $size > $cfg['quota']) fail(422, 'invalid', 'You have used your upload space. Contact AiRise for more.');
-    if (!is_dir($cfg['dir']) && !@mkdir($cfg['dir'], 0750, true)) {
-        error_log('AiRise: cannot create storage folder ' . $cfg['dir']);
-        fail(500, 'storage', 'Uploads are not set up on the server yet. Please tell AiRise.');
-    }
-    $stored = bin2hex(random_bytes(16)) . '.' . $ext;
-    if (@file_put_contents($cfg['dir'] . '/' . $stored, '') === false) {
-        fail(500, 'storage', 'Uploads are not set up on the server yet. Please tell AiRise.');
-    }
-    q('INSERT INTO airise_files (owner_id, name, mime, size, stored_as) VALUES (?, ?, ?, ?, ?)', [$uid, $name, AIR_TYPES[$ext][0], $size, $stored]);
-    ok(['id' => (int) db()->lastInsertId(), 'chunk' => AIR_CHUNK]);
+    $use = str_in('use', 10);
+    if (!isset(AIR_USES[$use])) $use = 'lesson';
+    if ($use !== 'portfolio' && !in_array('trainer', $roles, true)) fail(403, 'forbidden', 'Only trainers upload course files.');
+    $msg = ['cover' => 'Use a JPG, PNG or WebP picture for the cover.', 'portfolio' => 'Use a PDF, a picture (JPG, PNG) or a Word document.',
+        'lesson' => 'Use a video (MP4, WebM, MOV), audio (MP3, M4A, WAV), PDF, slides or a Word document.'][$use];
+    $max = ['cover' => min($cfg['max'], 5 * 1048576), 'portfolio' => min($cfg['max'], 20 * 1048576), 'lesson' => $cfg['max']][$use];
+    $quota = $use === 'portfolio' && !in_array('trainer', $roles, true) ? $cfg['learner_quota'] : $cfg['quota'];
+    ok(up_start('airise_files', $cfg['dir'], $uid, AIR_USES[$use], $max, $quota, $msg));
 }
 
-/** One piece of a file, sent as application/octet-stream to airise/upload/chunk?id=&offset=. */
 function r_air_upload_chunk(): never
 {
-    [$u] = air_require('trainer');
-    $f = row('SELECT * FROM airise_files WHERE id = ? AND owner_id = ?', [(int) ($_GET['id'] ?? 0), (int) $u['id']]);
-    if (!$f) fail(404, 'not_found', 'Upload not found.');
-    $offset = (int) ($_GET['offset'] ?? -1);
-    if ($offset !== (int) $f['received']) ok(['received' => (int) $f['received']]); // resume from where the server is
-    $data = file_get_contents('php://input', false, null, 0, AIR_CHUNK + 1);
-    if ($data === false || $data === '' || strlen($data) > AIR_CHUNK || $offset + strlen($data) > (int) $f['size']) fail(422, 'invalid', 'That piece of the file could not be read.');
-    $path = air_cfg()['dir'] . '/' . $f['stored_as'];
-    $h = @fopen($path, 'cb');
-    if (!$h || !flock($h, LOCK_EX)) fail(500, 'storage', 'The file could not be saved.');
-    clearstatcache(true, $path);
-    if (filesize($path) !== $offset) {
-        flock($h, LOCK_UN);
-        fclose($h);
-        ok(['received' => (int) $f['received']]);
-    }
-    fseek($h, $offset);
-    fwrite($h, $data);
-    fflush($h);
-    flock($h, LOCK_UN);
-    fclose($h);
-    $got = $offset + strlen($data);
-    q('UPDATE airise_files SET received = ? WHERE id = ?', [$got, (int) $f['id']]);
-    if ($got === (int) $f['size'] && str_starts_with($f['mime'], 'image/') && !@getimagesize($path)) {
-        @unlink($path);
-        q('DELETE FROM airise_files WHERE id = ?', [(int) $f['id']]);
-        fail(422, 'invalid', 'That file is not a picture we can use.');
-    }
-    ok(['received' => $got, 'done' => $got === (int) $f['size'], 'file' => $got === (int) $f['size'] ? air_file_out($f) : null]);
+    [$u] = air_require('trainer', 'learner');
+    ok(up_chunk('airise_files', air_cfg()['dir'], (int) $u['id']));
 }
 
-/** Hands out a file to its owner, AiRise administrators, or anyone on AiRise if its course is published. */
+/**
+ * Hands out a file to: its owner; AiRise administrators; anyone on AiRise if it belongs to a published
+ * course; approved employers if it is in a portfolio its owner chose to show (and was not rejected).
+ */
 function r_air_file(): never
 {
-    [$u, $roles] = air_require('learner', 'trainer', 'admin');
+    [$u, $roles] = air_require('learner', 'trainer', 'admin', 'employer');
     $f = row('SELECT * FROM airise_files WHERE id = ? AND received = size', [(int) ($_GET['id'] ?? 0)]);
     $allowed = $f && ((int) $f['owner_id'] === (int) $u['id'] || in_array('admin', $roles, true));
-    if ($f && !$allowed) {
-        // In a published course by the same trainer that references this file.
+    if ($f && !$allowed && array_intersect(['learner', 'trainer'], $roles)) {
         $needle = '"id":' . (int) $f['id'] . ',';
         foreach (q("SELECT data FROM airise_courses WHERE trainer_id = ? AND status = 'published'", [(int) $f['owner_id']])->fetchAll() as $c) {
             if (str_contains($c['data'], $needle)) {
@@ -456,44 +442,283 @@ function r_air_file(): never
             }
         }
     }
-    $path = $f ? air_cfg()['dir'] . '/' . basename($f['stored_as']) : '';
-    if (!$allowed || !is_file($path)) fail(404, 'not_found', 'File not found.');
-    $size = filesize($path);
-    $start = 0;
-    $end = $size - 1;
-    if (preg_match('/^bytes=(\d*)-(\d*)$/', (string) ($_SERVER['HTTP_RANGE'] ?? ''), $m) && ($m[1] !== '' || $m[2] !== '')) {
-        if ($m[1] === '') {
-            $start = max(0, $size - (int) $m[2]);
-        } else {
-            $start = (int) $m[1];
-            $end = $m[2] === '' ? $end : min($end, (int) $m[2]);
-        }
-        if ($start > $end || $start >= $size) {
-            header('Content-Range: bytes */' . $size);
-            http_response_code(416);
-            exit;
-        }
-        http_response_code(206);
-        header("Content-Range: bytes $start-$end/$size");
+    if ($f && !$allowed && in_array('employer', $roles, true)) {
+        $allowed = (bool) row("SELECT 1 FROM airise_docs d JOIN airise_profiles p ON p.user_id = d.user_id AND p.visible = 1
+                               WHERE d.file_id = ? AND d.status <> 'rejected'", [(int) $f['id']]);
     }
-    $inline = preg_match('#^(video|audio|image)/|^application/pdf$#', $f['mime']);
-    header('Content-Type: ' . $f['mime']);
-    header('Accept-Ranges: bytes');
-    header('Content-Length: ' . ($end - $start + 1));
-    header('Cache-Control: private, max-age=3600');
-    header("Content-Disposition: " . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($f['name']));
-    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
-    $h = fopen($path, 'rb');
-    fseek($h, $start);
-    $left = $end - $start + 1;
-    while ($left > 0 && !feof($h)) {
-        $buf = fread($h, (int) min(1048576, $left));
-        echo $buf;
-        $left -= strlen($buf);
-        flush();
+    if (!$allowed) fail(404, 'not_found', 'File not found.');
+    up_send(air_cfg()['dir'], $f, isset($_GET['download']));
+}
+
+// ------------------------------------------------------------------ learner portfolios
+function air_profile(int $uid): array
+{
+    $p = row('SELECT * FROM airise_profiles WHERE user_id = ?', [$uid]) ?: [];
+    return [
+        'course' => (string) ($p['course_of_study'] ?? ''), 'institution' => (string) ($p['institution'] ?? ''),
+        'level' => (string) ($p['level'] ?? ''), 'grade' => (string) ($p['grade'] ?? ''),
+        'cgpa' => isset($p['cgpa']) ? (float) $p['cgpa'] : null, 'scale' => (int) ($p['cgpa_scale'] ?? 5),
+        'career' => (string) ($p['career'] ?? ''), 'about' => (string) ($p['about'] ?? ''), 'visible' => (bool) ($p['visible'] ?? false),
+    ];
+}
+
+function air_docs(int $uid, bool $forEmployer = false): array
+{
+    $rows = q('SELECT d.*, f.name fname, f.mime, f.size FROM airise_docs d JOIN airise_files f ON f.id = d.file_id WHERE d.user_id = ?'
+        . ($forEmployer ? " AND d.status <> 'rejected'" : '') . ' ORDER BY d.id DESC', [$uid])->fetchAll();
+    return array_map(fn ($d) => ['id' => (int) $d['id'], 'folder' => $d['folder'], 'title' => $d['title'], 'status' => $d['status'],
+        'note' => $forEmployer ? '' : (string) $d['note'], 'at' => $d['created_at'],
+        'file' => ['id' => (int) $d['file_id'], 'name' => $d['fname'], 'mime' => $d['mime'], 'size' => (int) $d['size']]], $rows);
+}
+
+/**
+ * The portfolio score out of 100, with each part explained so learners know how to raise it.
+ * Certificates 35 · Grades 25 · Portfolio documents 30 · Complete profile 10.
+ */
+function air_score(int $uid, ?array $p = null): array
+{
+    $p ??= air_profile($uid);
+    $certs = q('SELECT course FROM airise_certs WHERE user_id = ?', [$uid])->fetchAll();
+    $series = count(array_filter($certs, fn ($c) => isset(AIR_SERIES[$c['course']]) && $c['course'] !== 'the-hack'));
+    $hack = count(array_filter($certs, fn ($c) => $c['course'] === 'the-hack'));
+    $trainer = count($certs) - $series - $hack;
+    $certPts = min(35, $series * 5 + $hack * 4 + $trainer * 3);
+
+    $docs = q('SELECT folder, status FROM airise_docs WHERE user_id = ?', [$uid])->fetchAll();
+    $count = fn (string $folder, string $st) => count(array_filter($docs, fn ($d) => $d['folder'] === $folder && $d['status'] === $st));
+    $resultsVerified = $count('results', 'verified') > 0;
+
+    $academic = 0.0;
+    if ($p['cgpa'] !== null && $p['scale'] > 0) {
+        $academic = min(1, $p['cgpa'] / $p['scale']) * 15 * ($resultsVerified ? 1 : ($count('results', 'pending') ? 0.5 : 0.25));
     }
-    fclose($h);
-    exit;
+    $best = [];
+    foreach (q('SELECT course, MAX(score / total) r FROM airise_attempts WHERE user_id = ? GROUP BY course', [$uid])->fetchAll() as $a) $best[] = (float) $a['r'];
+    $quiz = $best ? array_sum($best) / count($best) * 10 : 0.0;
+
+    $docPts = ($resultsVerified ? 10 : ($count('results', 'pending') ? 4 : 0))
+        + min(8, $count('certificates', 'verified') * 4 + $count('certificates', 'pending'))
+        + min(9, $count('projects', 'verified') * 3 + $count('projects', 'pending') * 1.5)
+        + min(3, $count('references', 'verified') * 3 + $count('references', 'pending'));
+    $profPts = 2 * count(array_filter([$p['course'], $p['institution'], $p['career'], $p['cgpa'] !== null ? 'y' : '', mb_strlen($p['about']) >= 40 ? 'y' : '']));
+
+    $parts = [
+        ['AiRise certificates', round($certPts, 1), 35, $series . ' of 9 series courses' . ($hack ? ', The Hack' : '') . ($trainer ? ", $trainer trainer course" . ($trainer > 1 ? 's' : '') : '')],
+        ['Grades', round($academic + $quiz, 1), 25, ($p['cgpa'] !== null ? 'Academic grade' . ($resultsVerified ? ' (results verified)' : ' (counts fully once your results are verified)') : 'Add your grade') . ' · ' . ($best ? 'AiRise quiz average ' . round(array_sum($best) / count($best) * 100) . '%' : 'no graded quizzes yet')],
+        ['Portfolio documents', round($docPts, 1), 30, 'Verified documents count fully; documents waiting for checks count partly'],
+        ['Complete profile', $profPts, 10, 'Course of study, institution, career path, grade and a short summary'],
+    ];
+    return ['total' => round(array_sum(array_column($parts, 1)), 1), 'parts' => $parts];
+}
+
+/** This learner's place among learners on the same career path who show their portfolio (plus themselves). */
+function air_rank(int $uid): ?array
+{
+    $p = air_profile($uid);
+    $mine = air_score($uid, $p);
+    if ($p['career'] === '' || !isset(AIR_CAREERS[$p['career']])) return ['career' => '', 'label' => '', 'position' => null, 'of' => 0, 'score' => $mine['total']];
+    $ids = array_map('intval', array_column(q('SELECT user_id FROM airise_profiles WHERE career = ? AND visible = 1 AND user_id <> ? LIMIT 2000', [$p['career'], $uid])->fetchAll(), 'user_id'));
+    $better = 0;
+    foreach ($ids as $id) {
+        if (air_score($id)['total'] > $mine['total']) $better++;
+    }
+    return ['career' => $p['career'], 'label' => AIR_CAREERS[$p['career']][0], 'position' => $better + 1, 'of' => count($ids) + 1, 'score' => $mine['total']];
+}
+
+/** Courses to take next, from the career path, the course of study and what is not finished yet. */
+function air_suggest(int $uid): array
+{
+    $p = air_profile($uid);
+    $done = [];
+    foreach (q('SELECT course, COUNT(*) n FROM airise_progress WHERE user_id = ? GROUP BY course', [$uid])->fetchAll() as $r) $done[$r['course']] = (int) $r['n'];
+    $certified = array_column(q('SELECT course FROM airise_certs WHERE user_id = ?', [$uid])->fetchAll(), 'course');
+    $career = AIR_CAREERS[$p['career']] ?? null;
+    $words = $career ? $career[2] : [];
+    foreach (preg_split('/[^a-z]+/', strtolower($p['course'])) as $w) {
+        if (strlen($w) > 3 && !in_array($w, ['bachelor', 'science', 'studies', 'master', 'degree', 'diploma', 'with', 'and'], true)) $words[] = $w;
+    }
+    $out = [];
+    $add = function (string $key, string $title, int $score, string $why) use (&$out, $certified) {
+        if (in_array($key, $certified, true) || isset($out[$key])) return;
+        $out[$key] = ['course' => $key, 'title' => $title, 'score' => $score, 'why' => $why];
+    };
+    if ($career) {
+        foreach ($career[1] as $i => $slug) {
+            $add($slug, AIR_SERIES[$slug][1], 30 - $i * 5 + (isset($done[$slug]) ? 3 : 0), 'A key skill for ' . strtolower($career[0]));
+        }
+    }
+    foreach (q("SELECT id, title, data FROM airise_courses WHERE status = 'published' ORDER BY published_at DESC LIMIT 200")->fetchAll() as $c) {
+        $d = json_decode($c['data'], true) ?: [];
+        $hay = strtolower($c['title'] . ' ' . ($d['summary'] ?? '') . ' ' . ($d['track'] ?? '') . ' ' . implode(' ', $d['skills'] ?? []));
+        $hit = array_values(array_filter($words, fn ($w) => $w !== '' && str_contains($hay, $w)));
+        if ($hit) {
+            $fromStudy = $p['course'] !== '' && str_contains(strtolower($p['course']), $hit[0]);
+            $add('t' . $c['id'], $c['title'], 22 + count($hit) * 2, $fromStudy ? 'Builds on your course of study' : ($career ? 'Matches your path: ' . strtolower($career[0]) : 'Matches your interests'));
+        }
+    }
+    // Keep going with the series in order.
+    foreach (AIR_SERIES as $slug => [$n, $title]) {
+        if ($n <= 9) $add($slug, $title, 10 - $n + (isset($done[$slug]) ? 8 : 0), isset($done[$slug]) ? 'You have started this course' : 'Next in the Employability Skills Series');
+    }
+    usort($out, fn ($a, $b) => $b['score'] <=> $a['score']);
+    return array_map(fn ($x) => ['course' => $x['course'], 'title' => $x['title'], 'why' => $x['why']], array_slice(array_values($out), 0, 6));
+}
+
+/** Short tips on what would raise the score most. */
+function air_tips(int $uid, array $p): array
+{
+    $docs = q('SELECT folder, status FROM airise_docs WHERE user_id = ?', [$uid])->fetchAll();
+    $has = fn (string $f) => (bool) array_filter($docs, fn ($d) => $d['folder'] === $f && $d['status'] !== 'rejected');
+    $tips = [];
+    if ($p['career'] === '') $tips[] = 'Choose your preferred career path to be ranked and get course suggestions.';
+    if (!$has('results')) $tips[] = 'Add your academic results (transcript or result slip) to the Academic results folder.';
+    if ($p['cgpa'] === null) $tips[] = 'Enter your grade (CGPA) so it counts in your score.';
+    if (!$has('projects')) $tips[] = 'Add a project or work sample that shows what you can do.';
+    if (!$p['visible']) $tips[] = 'Your portfolio is hidden from employers. Turn on "Show my portfolio to employers" when you are ready.';
+    return $tips;
+}
+
+function r_air_portfolio(): never
+{
+    [$u] = air_require('learner');
+    $uid = (int) $u['id'];
+    $p = air_profile($uid);
+    ok(['profile' => $p, 'docs' => air_docs($uid), 'score' => air_score($uid, $p), 'rank' => air_rank($uid), 'suggest' => air_suggest($uid),
+        'tips' => air_tips($uid, $p), 'careers' => array_map(fn ($k, $c) => ['key' => $k, 'label' => $c[0]], array_keys(AIR_CAREERS), AIR_CAREERS),
+        'folders' => AIR_FOLDERS]);
+}
+
+function r_air_portfolio_save(): never
+{
+    [$u] = air_require('learner');
+    $uid = (int) $u['id'];
+    rate_limit('air-pf:' . $uid, 120, 3600);
+    $in = input();
+    $career = str_in('career', 20);
+    if ($career !== '' && !isset(AIR_CAREERS[$career])) fail(422, 'invalid', 'Choose a career path from the list.');
+    $scale = (int) ($in['scale'] ?? 5) === 4 ? 4 : 5;
+    $cgpa = null;
+    if (($in['cgpa'] ?? '') !== '' && $in['cgpa'] !== null) {
+        if (!is_numeric($in['cgpa']) || (float) $in['cgpa'] < 0 || (float) $in['cgpa'] > $scale) fail(422, 'invalid', "Enter your CGPA as a number from 0 to $scale.", ['cgpa' => "A number from 0 to $scale."]);
+        $cgpa = round((float) $in['cgpa'], 2);
+    }
+    $vals = [$uid, str_in('course', 120) ?: null, str_in('institution', 120) ?: null, str_in('level', 40) ?: null, str_in('grade', 60) ?: null,
+        $cgpa, $scale, $career ?: null, str_in('about', 600) ?: null, !empty($in['visible']) ? 1 : 0];
+    q('INSERT INTO airise_profiles (user_id, course_of_study, institution, level, grade, cgpa, cgpa_scale, career, about, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE course_of_study = VALUES(course_of_study), institution = VALUES(institution), level = VALUES(level), grade = VALUES(grade),
+       cgpa = VALUES(cgpa), cgpa_scale = VALUES(cgpa_scale), career = VALUES(career), about = VALUES(about), visible = VALUES(visible)', $vals);
+    ok(['message' => 'Portfolio saved']);
+}
+
+function r_air_portfolio_doc(): never
+{
+    [$u] = air_require('learner');
+    $uid = (int) $u['id'];
+    rate_limit('air-doc:' . $uid, 120, 3600);
+    $in = input();
+    if (($in['action'] ?? '') === 'delete') {
+        q('DELETE FROM airise_docs WHERE id = ? AND user_id = ?', [int_in('id'), $uid]);
+        ok(['message' => 'Document removed']);
+    }
+    $folder = str_in('folder', 20);
+    if (!isset(AIR_FOLDERS[$folder])) fail(422, 'invalid', 'Choose a folder.');
+    $title = str_in('title', 120);
+    if (mb_strlen($title) < 2) fail(422, 'invalid', 'Give the document a title, e.g. "Year 3 result slip".', ['title' => 'Give the document a title.']);
+    $fid = is_array($in['file'] ?? null) ? (int) ($in['file']['id'] ?? 0) : 0;
+    $f = $fid ? row('SELECT * FROM airise_files WHERE id = ? AND owner_id = ? AND received = size', [$fid, $uid]) : null;
+    if (!$f || !in_array(strtolower(pathinfo($f['name'], PATHINFO_EXTENSION)), AIR_USES['portfolio'], true)) fail(422, 'invalid', 'Upload the file first.');
+    if ((int) row('SELECT COUNT(*) n FROM airise_docs WHERE user_id = ?', [$uid])['n'] >= 60) fail(422, 'invalid', 'A portfolio can hold up to 60 documents.');
+    q('INSERT INTO airise_docs (user_id, folder, title, file_id) VALUES (?, ?, ?, ?)', [$uid, $folder, $title, $fid]);
+    ok(['message' => 'Added. AiRise will check it; verified documents count fully in your score.']);
+}
+
+// ------------------------------------------------------------------ employers: talent search
+function air_talent_card(array $r): array
+{
+    $p = air_profile((int) $r['user_id']);
+    $sc = air_score((int) $r['user_id'], $p);
+    $docs = q("SELECT folder, status FROM airise_docs WHERE user_id = ? AND status <> 'rejected'", [(int) $r['user_id']])->fetchAll();
+    $folders = [];
+    foreach (AIR_FOLDERS as $k => $label) {
+        $in = array_filter($docs, fn ($d) => $d['folder'] === $k);
+        $folders[] = ['key' => $k, 'label' => $label, 'count' => count($in), 'verified' => count(array_filter($in, fn ($d) => $d['status'] === 'verified'))];
+    }
+    return ['id' => (int) $r['user_id'], 'name' => $r['full_name'], 'course' => $p['course'], 'institution' => $p['institution'], 'level' => $p['level'],
+        'grade' => $p['grade'], 'cgpa' => $p['cgpa'], 'scale' => $p['scale'], 'career' => $p['career'], 'careerLabel' => AIR_CAREERS[$p['career']][0] ?? '',
+        'score' => $sc['total'], 'parts' => $sc['parts'], 'folders' => $folders,
+        'certs' => (int) row('SELECT COUNT(*) n FROM airise_certs WHERE user_id = ?', [(int) $r['user_id']])['n']];
+}
+
+function r_air_talent(): never
+{
+    air_require('employer', 'admin');
+    rate_limit('air-talent:' . client_ip(), 300, 3600);
+    $career = (string) ($_GET['career'] ?? '');
+    $qs = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 60);
+    $where = ['p.visible = 1'];
+    $args = [];
+    if (isset(AIR_CAREERS[$career])) {
+        $where[] = 'p.career = ?';
+        $args[] = $career;
+    }
+    if ($qs !== '') {
+        $where[] = '(p.course_of_study LIKE ? OR p.institution LIKE ? OR u.full_name LIKE ?)';
+        array_push($args, "%$qs%", "%$qs%", "%$qs%");
+    }
+    $rows = q('SELECT p.user_id, u.full_name FROM airise_profiles p JOIN users u ON u.id = p.user_id AND u.status IN (\'active\', \'warning\')
+               WHERE ' . implode(' AND ', $where) . ' LIMIT 500', $args)->fetchAll();
+    $cards = array_map('air_talent_card', $rows);
+    usort($cards, fn ($a, $b) => $b['score'] <=> $a['score']);
+    // Rank within each career path.
+    $seen = [];
+    foreach ($cards as &$c) {
+        $c['rank'] = ($seen[$c['career']] = ($seen[$c['career']] ?? 0) + 1);
+    }
+    ok(['items' => $cards, 'careers' => array_map(fn ($k, $c) => ['key' => $k, 'label' => $c[0]], array_keys(AIR_CAREERS), AIR_CAREERS), 'folders' => AIR_FOLDERS]);
+}
+
+function r_air_talent_one(): never
+{
+    air_require('employer', 'admin');
+    $r = row("SELECT p.user_id, u.full_name, u.email FROM airise_profiles p JOIN users u ON u.id = p.user_id AND u.status IN ('active', 'warning')
+              WHERE p.user_id = ? AND p.visible = 1", [(int) ($_GET['id'] ?? 0)]);
+    if (!$r) fail(404, 'not_found', 'This portfolio is not available.');
+    $uid = (int) $r['user_id'];
+    ok(['learner' => air_talent_card($r) + ['email' => $r['email'], 'about' => air_profile($uid)['about'], 'docs' => air_docs($uid, true),
+        'certList' => array_map(fn ($c) => ['title' => $c['title'], 'number' => $c['number'], 'at' => substr($c['issued_at'], 0, 10)],
+            q('SELECT * FROM airise_certs WHERE user_id = ? ORDER BY issued_at', [$uid])->fetchAll())]]);
+}
+
+// ------------------------------------------------------------------ administrators: portfolio documents
+function r_air_admin_docs(): never
+{
+    air_require('admin');
+    $st = (string) ($_GET['status'] ?? 'pending');
+    $rows = q('SELECT d.*, u.full_name, u.email, f.name fname, f.mime, f.size FROM airise_docs d JOIN users u ON u.id = d.user_id JOIN airise_files f ON f.id = d.file_id
+               WHERE d.status = ? ORDER BY d.id LIMIT 300', [in_array($st, ['pending', 'verified', 'rejected'], true) ? $st : 'pending'])->fetchAll();
+    ok(['items' => array_map(fn ($d) => ['id' => (int) $d['id'], 'learner' => $d['full_name'], 'email' => $d['email'], 'folder' => AIR_FOLDERS[$d['folder']] ?? $d['folder'],
+        'title' => $d['title'], 'status' => $d['status'], 'note' => (string) $d['note'], 'at' => $d['created_at'],
+        'file' => ['id' => (int) $d['file_id'], 'name' => $d['fname'], 'mime' => $d['mime'], 'size' => (int) $d['size']],
+        'profile' => air_profile((int) $d['user_id'])], $rows)]);
+}
+
+function r_air_admin_doc(): never
+{
+    [$u] = air_require('admin');
+    $d = row('SELECT d.*, u.email FROM airise_docs d JOIN users u ON u.id = d.user_id WHERE d.id = ?', [int_in('id')]);
+    if (!$d) fail(404, 'not_found', 'Document not found.');
+    if ((int) $d['user_id'] === (int) $u['id']) fail(403, 'forbidden', 'Another administrator must check your own documents.');
+    $decision = str_in('decision', 10);
+    $note = str_in('note', 300);
+    if (!in_array($decision, ['verify', 'reject'], true)) fail(422, 'invalid', 'Unknown decision.');
+    if ($decision === 'reject' && $note === '') fail(422, 'invalid', 'Tell the learner why.');
+    q('UPDATE airise_docs SET status = ?, note = NULLIF(?, \'\'), reviewed_by = ?, reviewed_at = ? WHERE id = ?',
+        [$decision === 'verify' ? 'verified' : 'rejected', $note, (int) $u['id'], now_utc(), (int) $d['id']]);
+    if ($decision === 'reject') {
+        send_mail($d['email'], 'About a document in your AiRise portfolio', "\"{$d['title']}\" could not be verified: $note\n\nYou can upload a clearer copy from your portfolio: " . site_url('products/airise/portfolio.html'));
+    }
+    audit((int) $u['id'], 'airise_doc_' . $decision, (int) $d['user_id'], ['doc' => (int) $d['id']]);
+    ok(['message' => $decision === 'verify' ? 'Verified.' : 'Marked as not verified. The learner has been emailed.']);
 }
 
 // ------------------------------------------------------------------ administrators: review

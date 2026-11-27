@@ -11,12 +11,12 @@ const PRODUCTS = [
     'aipay'    => ['name' => 'AiPay',    'roles' => ['customer', 'merchant']],
     'aimove'   => ['name' => 'AiMove',   'roles' => ['customer', 'rider']],
     'greenfed' => ['name' => 'GreenFed', 'roles' => ['customer', 'employee']],
-    'airise'   => ['name' => 'AiRise',   'roles' => ['customer', 'trainer']],
+    'airise'   => ['name' => 'AiRise',   'roles' => ['customer', 'trainer', 'employer']],
 ];
-const NEEDS_APPROVAL = ['rider', 'merchant', 'employee', 'trainer'];
+const NEEDS_APPROVAL = ['rider', 'merchant', 'employee', 'trainer', 'employer'];
 const ROLE_NAMES = [
     'customer' => 'Customer', 'rider' => 'Rider', 'merchant' => 'Merchant',
-    'employee' => 'Employee', 'trainer' => 'Trainer', 'admin' => 'Administrator',
+    'employee' => 'Employee', 'trainer' => 'Trainer', 'employer' => 'Employer', 'admin' => 'Administrator',
 ];
 const EMPLOYEE_TYPES = [
     'nutritionist' => 'Nutritionist', 'supply_manager' => 'Supply manager',
@@ -419,6 +419,18 @@ function clean_details(string $role, mixed $raw): array
                 $out['profile_url'] = $url;
             }
             $opt('bio', 600);
+            break;
+        case 'employer':
+            $need('company_name', 2, 120, 'your company name');
+            $need('job_title', 2, 80, 'your job title');
+            $url = $get('company_website', 200);
+            if ($url !== '') {
+                if (!preg_match('#^https://#i', $url) || filter_var($url, FILTER_VALIDATE_URL) === false) {
+                    $errors['company_website'] = 'Use a full https:// link, or leave it empty.';
+                }
+                $out['company_website'] = $url;
+            }
+            $opt('hiring_for', 200);
             break;
     }
     if ($errors) {

@@ -348,8 +348,33 @@
         .join("") ||
       `<div class="empty card"><b>No certificates yet</b>Finish every lesson of a course to earn one.</div>`;
 
-    const ld = $("[data-lessons-done]");
-    if (ld) ld.textContent = lessonsDone;
+    // Talent ranking from the portfolio (server), and courses suggested from it.
+    const rk = ST.rank;
+    if (rk && $("[data-rank-pos]")) {
+      $("[data-rank-label]").textContent = rk.label ? "Talent ranking · " + rk.label : "Talent ranking";
+      $("[data-rank-pos]").textContent = rk.position ? `#${rk.position} of ${rk.of}` : "Choose a career path";
+      $("[data-rank-score]").textContent = Math.round(rk.score);
+      $("[data-rank-score]").title = "Portfolio score out of 100";
+    }
+    const sg = $("[data-suggest]");
+    if (sg)
+      sg.innerHTML =
+        (ST.suggest || [])
+          .map((x) => {
+            const c =
+              COURSES.find((y) => y.slug === x.course) || ST.catalog.map(trainerCard).find((y) => y.slug === x.course);
+            if (!c) return "";
+            const p = pct(c);
+            return `<a class="ccard card" href="learn.html?course=${esc(c.slug)}">
+          <div class="thumb ${c.trainer ? "thumb--p3" : thumbClass(c)}"><span class="thumb__n">${c.trainer ? "Trainer course" : c.partner ? "Partner" : "Course " + c.n}</span>${c.trainer ? "" : `<span class="thumb__model">${c.model}</span>`}</div>
+          <span class="pill pill--green" style="align-self:flex-start">${esc(x.why)}</span>
+          <h3>${esc(c.title)}</h3>
+          <div class="ccard__meta"><span>${p ? p + "% complete" : "Not started"}</span><span>${lessonCount(c)} lessons</span></div>
+        </a>`;
+          })
+          .join("") ||
+        `<div class="empty card"><b>Nothing to suggest yet</b><a href="portfolio.html">Add your career path</a> to get suggestions.</div>`;
+    void lessonsDone;
 
     // Study chart: minutes finished on each of the last 7 days.
     const chart = $("[data-chart]");

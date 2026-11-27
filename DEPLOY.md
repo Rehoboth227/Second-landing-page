@@ -250,6 +250,59 @@ carry over: everyone starts at 0, and the sample progress and sample courses are
 - Quizzes on trainer courses are marked by the server and learners never see the answers. The
   nine-course series quizzes are sat with the instructor and then marked complete, as before.
 
+## Updating a site that is already live: e-books on AiPay, portfolios and employers on AiRise (November 2026)
+
+Run this **after** the AiRise migration above (004).
+
+1. cPanel → **phpMyAdmin** → your Rehohub database → **SQL** tab. Paste everything from
+   `database/migrations-005-portfolios-and-ebooks.sql` and press **Go**. It adds new tables and two new
+   values to existing lists (the "employer" role and "digital" AiPay orders). Running it again changes
+   nothing.
+2. Upload the new files as usual, including `api/lib/uploads.php`, `assets/js/airise-portfolio.js`,
+   `products/airise/portfolio.html` and `products/airise/talent.html`.
+3. **E-book files** are kept privately on the server, never on the seller's device. As with AiRise, the best
+   place is a folder next to `public_html`, for example `/home/YOUR_CPANEL_USERNAME/aipay-files`. Add to your
+   settings file:
+
+   ```php
+   'aipay' => [
+       'storage_dir'       => '/home/YOUR_CPANEL_USERNAME/aipay-files',
+       'max_upload_mb'     => 100,   // largest e-book or audiobook
+       'merchant_quota_mb' => 2000,  // total space for each seller
+   ],
+   ```
+
+   and, inside the `'airise'` settings, `'learner_quota_mb' => 200,` (space for each learner's portfolio).
+   If you skip this, files go to `public_html/api/storage/aipay`, protected by `api/storage/.htaccess`.
+
+**AiPay e-books and audiobooks**
+
+- A seller ticks **This is a digital download** when adding a product and uploads the file (PDF, EPUB, MOBI,
+  AZW3, MP3, M4A or M4B). It never runs out of stock.
+- An order of only downloads has no delivery step. The buyer pays the seller by transfer as usual; when the
+  seller confirms the payment, the order is complete and a **Download** button appears in the buyer's order.
+  Only that buyer (and the seller) can download it, and the buyer keeps the exact file they paid for even if
+  the seller later replaces it.
+
+**AiRise portfolios and employers**
+
+- Learners open **My portfolio** to add their course of study, school, grade (CGPA), preferred career path
+  and a short summary, and to upload documents into four folders: academic results, certificates and awards,
+  projects and work samples, references. Portfolios are **hidden until the learner chooses** "Show my
+  portfolio to employers".
+- **Checking documents**: Admin console → **AiRise courses** → choose **Portfolio documents to check**. Open
+  each file and press **Verified** or **Can't verify** (with a reason, emailed to the learner).
+- **Score and ranking** (out of 100, shown to the learner with how to raise it): AiRise certificates up to
+  35, grades up to 25 (CGPA counts fully once a results document is verified, plus AiRise quiz marks),
+  portfolio documents up to 30 (verified documents count fully, waiting ones partly), a complete profile 10.
+  Learners are ranked against others on the same career path who show their portfolio.
+- **Course suggestions** on the dashboard and portfolio come from the career path, the course of study and
+  what the learner has not finished.
+- **Employers** sign up with **Hire from AiRise** (company name and job title). Approve them in **Admin
+  console → Applications** only once you know the company is real: they will see learners' names, email
+  addresses and documents. Approved employers use the **Talent search** page; they only see portfolios
+  learners chose to show, and never documents you could not verify.
+
 ## Google Maps for AiMove (optional, recommended)
 
 Without keys, AiMove estimates distances from the addresses and shows an illustrated map. With

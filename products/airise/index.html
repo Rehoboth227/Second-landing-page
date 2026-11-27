@@ -209,6 +209,7 @@
             <a class="btn btn--gold" href="${RH.esc(RH.url("account/register.html?product=airise&role=customer"))}">Create a free learner account</a>
             <div class="or">Are you a trainer or facilitator?</div>
             <a class="btn btn--line" href="${RH.esc(RH.url("account/register.html?product=airise&role=trainer"))}">Teach on AiRise</a>
+            <a class="btn btn--line" href="${RH.esc(RH.url("account/register.html?product=airise&role=employer"))}">Hire from AiRise</a>
             <p class="links">New to AiRise? <a href="../../services/rheti/index.html">See the programme</a></p>`;
         };
         let s;
@@ -223,11 +224,12 @@
         const roles = RH.rolesIn(s.user, "airise");
         if (roles.includes("customer") || roles.includes("admin")) return location.replace(dash);
         if (roles.includes("trainer")) return location.replace(studio);
+        if (roles.includes("employer")) return location.replace(RH.url("products/airise/talent.html"));
         const pending = RH.memberships(s.user, "airise").find((m) => m.status === "pending");
         box.innerHTML = `<h2>Hello, ${RH.esc(s.user.full_name.split(" ")[0])}</h2>
           ${
             pending
-              ? `<div class="note">Your AiRise trainer application is being reviewed. We'll email ${RH.esc(s.user.email)} when it's approved.</div>
+              ? `<div class="note">Your AiRise ${RH.esc((RH.ROLE_LABEL["airise:" + pending.role] || pending.role).toLowerCase())} application is being reviewed. We'll email ${RH.esc(s.user.email)} when it's approved.</div>
                  <a class="btn btn--gold" href="${RH.esc(RH.url("account/index.html#apply=airise:customer"))}">Start learning while you wait</a>`
               : `<p>AiRise isn't on your account yet. Add it in one click: learner access is free and instant.</p>
                  <a class="btn btn--gold" href="${RH.esc(RH.url("account/index.html#apply=airise:customer"))}">Add AiRise to my account</a>`

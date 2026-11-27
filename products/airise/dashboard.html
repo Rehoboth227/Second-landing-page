@@ -164,14 +164,18 @@
               >
             </li>
             <li>
+              <a class="side__link" href="portfolio.html"
+                ><svg class="i" aria-hidden="true"><use href="#i-layers" /></svg><span>My portfolio</span></a
+              >
+            </li>
+            <li>
               <a class="side__link" href="../../services/rheti/programme.html"
                 ><svg class="i" aria-hidden="true"><use href="#i-book" /></svg><span>Courses</span></a
               >
             </li>
             <li>
               <a class="side__link" href="../../services/rheti/assessment.html"
-                ><svg class="i" aria-hidden="true"><use href="#i-help" /></svg><span>Assessments</span
-                ></a
+                ><svg class="i" aria-hidden="true"><use href="#i-help" /></svg><span>Assessments</span></a
               >
             </li>
             <li>
@@ -296,6 +300,13 @@
           </div>
           <div class="cards-row" data-continue></div>
         </section>
+        <section class="sec" aria-labelledby="sug-t">
+          <div class="sec__head">
+            <h2 id="sug-t">Suggested for you</h2>
+            <a href="portfolio.html">Based on your portfolio</a>
+          </div>
+          <div class="cards-row" data-suggest></div>
+        </section>
 
         <section class="sec" aria-label="Ask yourself">
           <div class="ask">
@@ -369,10 +380,10 @@
             ></a>
           </div>
         </div>
-        <div class="rank">
-          <div><small>Lessons completed</small><b>All courses</b></div>
-          <strong data-lessons-done>0</strong>
-        </div>
+        <a class="rank" href="portfolio.html" style="text-decoration: none; color: inherit">
+          <div><small data-rank-label>Talent ranking</small><b data-rank-pos>Set up your portfolio</b></div>
+          <strong data-rank-score>–</strong>
+        </a>
         <div class="chart">
           <h3>Study time <span data-chart-sum>Last 7 days</span></h3>
           <ul class="chart__bars" data-chart></ul>

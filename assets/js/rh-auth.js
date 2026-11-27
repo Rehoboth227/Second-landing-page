@@ -13,6 +13,7 @@
     merchant: "Merchant",
     employee: "Employee",
     trainer: "Trainer",
+    employer: "Employer",
     admin: "Administrator",
   };
   // Role names as each product calls them
@@ -25,6 +26,7 @@
     "greenfed:employee": "Employee",
     "airise:customer": "Learner",
     "airise:trainer": "Trainer",
+    "airise:employer": "Employer",
   };
   // Where each approved role opens
   const OPEN = {
@@ -39,6 +41,7 @@
     "greenfed:admin": "products/greenfed.html",
     "airise:customer": "products/airise/dashboard.html",
     "airise:trainer": "products/airise/trainer.html",
+    "airise:employer": "products/airise/talent.html",
     "airise:admin": "products/airise/dashboard.html",
   };
 

@@ -30,6 +30,11 @@ const AIPAY_SETTINGS = [
     'productSold' => true, 'salesEmail' => false, 'dashWeekly' => false, 'screen' => true, 'email' => true,
 ];
 const AIPAY_ORDER_STATUSES = ['awaiting_payment', 'payment_sent', 'processing', 'ready', 'shipped', 'delivered', 'cancelled'];
+// Digital products (e-books, audiobooks): the file is kept privately on the server (api/lib/uploads.php)
+// and the buyer downloads it from their order once the seller confirms the payment.
+const AIPAY_DIGITAL_EXTS = ['pdf', 'epub', 'mobi', 'azw3', 'mp3', 'm4a', 'm4b'];
+const AIPAY_DIGITAL_STOCK = 1000000; // digital products never run out
+const AIPAY_PAID = ['processing', 'ready', 'shipped', 'delivered'];
 
 // ------------------------------------------------------------------ helpers
 function aipay_membership(int $uid, string $role): ?array
@@ -146,16 +151,25 @@ function aipay_store_public(array $s): array
 function aipay_order_out(array $o, bool $withBank = false): array
 {
     $items = q('SELECT product_id, name, price, qty, image_id FROM aipay_order_items WHERE order_id = ?', [(int) $o['id']])->fetchAll();
+    $files = [];
+    foreach (q('SELECT of.product_id, f.name, f.size FROM aipay_order_files of JOIN aipay_files f ON f.id = of.file_id WHERE of.order_id = ?', [(int) $o['id']])->fetchAll() as $f) {
+        $files[(int) $f['product_id']] = $f;
+    }
     $out = [
         'code' => $o['code'], 'status' => $o['status'], 'delivery' => $o['delivery'],
         'address' => $o['address'] ? (json_decode($o['address'], true) ?: null) : null,
         'subtotal' => (int) $o['subtotal'], 'delivery_fee' => (int) $o['delivery_fee'], 'total' => (int) $o['total'],
         'pay_sender' => $o['pay_sender'], 'pay_bank' => $o['pay_bank'], 'paid_at' => $o['paid_at'],
         'cancel_note' => $o['cancel_note'], 'created_at' => $o['created_at'], 'updated_at' => $o['updated_at'],
-        'items' => array_map(fn ($i) => [
-            'product_id' => $i['product_id'] ? (int) $i['product_id'] : null, 'name' => $i['name'],
-            'price' => (int) $i['price'], 'qty' => (int) $i['qty'], 'image_id' => $i['image_id'] ? (int) $i['image_id'] : null,
-        ], $items),
+        'items' => array_map(function ($i) use ($files, $o) {
+            $f = $i['product_id'] ? ($files[(int) $i['product_id']] ?? null) : null;
+            return [
+                'product_id' => $i['product_id'] ? (int) $i['product_id'] : null, 'name' => $i['name'],
+                'price' => (int) $i['price'], 'qty' => (int) $i['qty'], 'image_id' => $i['image_id'] ? (int) $i['image_id'] : null,
+                'digital' => (bool) $f, 'format' => $f ? strtoupper(pathinfo($f['name'], PATHINFO_EXTENSION)) : null, 'file_size' => $f ? (int) $f['size'] : null,
+                'download' => $f && in_array($o['status'], AIPAY_PAID, true),
+            ];
+        }, $items),
     ];
     if (isset($o['buyer_name'])) {
         $out['buyer_name'] = $o['buyer_name'];
@@ -250,6 +264,49 @@ function r_aipay_image(): never
     header('Content-Length: ' . strlen($r['data']));
     echo $r['data'];
     exit;
+}
+
+// ------------------------------------------------------------------ digital products: files
+function aipay_files_cfg(): array
+{
+    $c = config()['aipay'] ?? [];
+    return ['dir' => up_dir('aipay'), 'max' => max(1, (int) ($c['max_upload_mb'] ?? 100)) * 1048576,
+        'quota' => max(1, (int) ($c['merchant_quota_mb'] ?? 2000)) * 1048576];
+}
+
+function r_aipay_file_start(): never
+{
+    $u = aipay_require_merchant();
+    rate_limit('aipay-file:' . $u['id'], 100, 3600);
+    $c = aipay_files_cfg();
+    ok(up_start('aipay_files', $c['dir'], (int) $u['id'], AIPAY_DIGITAL_EXTS, $c['max'], $c['quota'],
+        'Use a PDF, EPUB, MOBI or AZW3 e-book, or an MP3, M4A or M4B audiobook.'));
+}
+
+function r_aipay_file_chunk(): never
+{
+    $u = aipay_require_merchant();
+    ok(up_chunk('aipay_files', aipay_files_cfg()['dir'], (int) $u['id']));
+}
+
+/** The buyer downloads a digital product from a paid order; the seller can download their own file. */
+function r_aipay_download(): never
+{
+    $u = require_user();
+    $uid = (int) $u['id'];
+    rate_limit('aipay-dl:' . $uid, 100, 3600);
+    $pid = (int) ($_GET['product'] ?? 0);
+    $f = null;
+    if (isset($_GET['code'])) {
+        $o = aipay_find_order('buyer_id', $uid);
+        if (!in_array($o['status'], AIPAY_PAID, true)) fail(403, 'forbidden', 'Your download is ready once the store confirms your payment.');
+        $f = row('SELECT f.* FROM aipay_order_files of JOIN aipay_files f ON f.id = of.file_id WHERE of.order_id = ? AND of.product_id = ?', [(int) $o['id'], $pid]);
+    } else {
+        $f = row('SELECT f.* FROM aipay_downloads d JOIN aipay_files f ON f.id = d.file_id JOIN aipay_products p ON p.id = d.product_id
+                  WHERE d.product_id = ? AND p.merchant_id = ?', [$pid, $uid]);
+    }
+    if (!$f || (int) $f['received'] !== (int) $f['size']) fail(404, 'not_found', 'File not found.');
+    up_send(aipay_files_cfg()['dir'], $f, true);
 }
 
 // ------------------------------------------------------------------ me
@@ -367,14 +424,23 @@ function aipay_live_sql(): string
             JOIN users su ON su.id = p.merchant_id AND su.status IN ('active', 'warning')";
 }
 
-function aipay_product_out(array $p): array
+function aipay_download_of(int $productId): ?array
 {
-    return [
+    return row('SELECT f.* FROM aipay_downloads d JOIN aipay_files f ON f.id = d.file_id WHERE d.product_id = ?', [$productId]);
+}
+
+function aipay_product_out(array $p, bool $owner = false): array
+{
+    $f = aipay_download_of((int) $p['id']);
+    $out = [
         'id' => (int) $p['id'], 'name' => $p['name'], 'category' => $p['category'], 'price' => (int) $p['price'],
-        'stock' => (int) $p['stock'], 'description' => $p['description'], 'image_id' => $p['image_id'] ? (int) $p['image_id'] : null,
+        'stock' => $f ? 1 : (int) $p['stock'], 'description' => $p['description'], 'image_id' => $p['image_id'] ? (int) $p['image_id'] : null,
         'merchant_id' => (int) $p['merchant_id'], 'store' => $p['business_name'] ?? null,
         'city' => $p['city'] ?? null, 'state' => $p['state'] ?? null,
+        'digital' => (bool) $f, 'format' => $f ? strtoupper(pathinfo($f['name'], PATHINFO_EXTENSION)) : null, 'file_size' => $f ? (int) $f['size'] : null,
     ];
+    if ($owner && $f) $out['file'] = up_file_out($f);
+    return $out;
 }
 
 function r_aipay_products(): never
@@ -507,7 +573,7 @@ function r_aipay_my_products(): never
 {
     $u = aipay_require_merchant();
     $rows = q('SELECT * FROM aipay_products WHERE merchant_id = ? AND active = 1 ORDER BY created_at DESC LIMIT 500', [(int) $u['id']])->fetchAll();
-    ok(['items' => array_map(fn ($p) => aipay_product_out($p) + ['sold' => (int) $p['sold']], $rows), 'categories' => AIPAY_CATEGORIES]);
+    ok(['items' => array_map(fn ($p) => aipay_product_out($p, true) + ['sold' => (int) $p['sold']], $rows), 'categories' => AIPAY_CATEGORIES]);
 }
 
 function r_aipay_product_save(): never
@@ -522,11 +588,19 @@ function r_aipay_product_save(): never
     $stock = int_in('stock');
     $desc = str_in('description', 600);
     $img = int_in('image_id');
+    $fileId = int_in('file_id');
+    $file = $fileId ? row('SELECT * FROM aipay_files WHERE id = ? AND owner_id = ? AND received = size', [$fileId, $uid]) : null;
     $e = [];
+    if ($fileId && (!$file || !in_array(strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)), AIPAY_DIGITAL_EXTS, true))) {
+        $e['file_id'] = 'Upload the e-book file again.';
+    }
+    if ($file) {
+        $stock = AIPAY_DIGITAL_STOCK;
+    }
     if (mb_strlen($name) < 2) $e['name'] = 'Enter the product name.';
     if (!in_array($cat, AIPAY_CATEGORIES, true)) $e['category'] = 'Choose a category.';
     if ($price < 50 || $price > 50000000) $e['price'] = 'Enter a price between NGN 50 and NGN 50,000,000.';
-    if ($stock > 100000) $e['stock'] = 'Enter a quantity up to 100,000.';
+    if (!$file && $stock > 100000) $e['stock'] = 'Enter a quantity up to 100,000.';
     if ($img && !row('SELECT 1 FROM aipay_images WHERE id = ? AND owner_id = ?', [$img, $uid])) $e['image_id'] = 'Upload the picture again.';
     if ($e) {
         fail(422, 'invalid', 'Please check the highlighted fields.', $e);
@@ -544,6 +618,12 @@ function r_aipay_product_save(): never
         q('INSERT INTO aipay_products (merchant_id, name, category, price, stock, description, image_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [$uid, $name, $cat, $price, $stock, $desc ?: null, $img ?: null]);
         $id = (int) db()->lastInsertId();
+    }
+    // A product with a file is a digital download; removing the file makes it a physical product again.
+    if ($file) {
+        q('REPLACE INTO aipay_downloads (product_id, file_id) VALUES (?, ?)', [$id, (int) $file['id']]);
+    } elseif (array_key_exists('file_id', input())) {
+        q('DELETE FROM aipay_downloads WHERE product_id = ?', [$id]);
     }
     ok(['id' => $id]);
 }
@@ -574,9 +654,20 @@ function r_aipay_order_create(): never
     if (!$want) {
         fail(422, 'invalid', 'Your cart is empty.');
     }
-    $delivery = str_in('delivery', 10) === 'delivery' ? 'delivery' : 'pickup';
+    // Digital products: one copy each, nothing to deliver. An order of only digital products skips delivery.
+    $files = [];
+    foreach (array_keys($want) as $pid) {
+        if ($f = aipay_download_of($pid)) {
+            $files[$pid] = $f;
+            $want[$pid] = 1;
+        }
+    }
+    $allDigital = count($files) === count($want);
+    $delivery = $allDigital ? 'digital' : (str_in('delivery', 10) === 'delivery' ? 'delivery' : 'pickup');
     $address = null;
-    if ($delivery === 'delivery') {
+    if ($allDigital) {
+        $address = null;
+    } elseif ($delivery === 'delivery') {
         $address = aipay_clean_address(is_array($in['address'] ?? null) ? $in['address'] : []);
     } else {
         $phone = str_in('phone', 30);
@@ -601,7 +692,7 @@ function r_aipay_order_create(): never
             $pdo->rollBack();
             fail(422, 'invalid', 'Order from one store at a time.');
         }
-        if ((int) $p['stock'] < $want[(int) $p['id']]) {
+        if (!isset($files[(int) $p['id']]) && (int) $p['stock'] < $want[(int) $p['id']]) {
             $pdo->rollBack();
             fail(409, 'stock', "Only {$p['stock']} of {$p['name']} left. Please change the quantity.");
         }
@@ -621,13 +712,17 @@ function r_aipay_order_create(): never
         $code = strtoupper(substr(bin2hex(random_bytes(6)), 0, 10));
     } while (row('SELECT 1 FROM aipay_orders WHERE code = ?', [$code]));
     q('INSERT INTO aipay_orders (code, buyer_id, merchant_id, delivery, address, subtotal, delivery_fee, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [$code, $uid, $merchant, $delivery, json_encode($address), $subtotal, $fee, $subtotal + $fee]);
+        [$code, $uid, $merchant, $delivery, $address === null ? null : json_encode($address), $subtotal, $fee, $subtotal + $fee]);
     $oid = (int) $pdo->lastInsertId();
     foreach ($rows as $p) {
         $qty = $want[(int) $p['id']];
         q('INSERT INTO aipay_order_items (order_id, product_id, name, price, qty, image_id) VALUES (?, ?, ?, ?, ?, ?)',
             [$oid, (int) $p['id'], $p['name'], (int) $p['price'], $qty, $p['image_id']]);
-        q('UPDATE aipay_products SET stock = stock - ? WHERE id = ?', [$qty, (int) $p['id']]);
+        if (isset($files[(int) $p['id']])) {
+            q('INSERT INTO aipay_order_files (order_id, product_id, file_id) VALUES (?, ?, ?)', [$oid, (int) $p['id'], (int) $files[(int) $p['id']]['id']]);
+        } else {
+            q('UPDATE aipay_products SET stock = stock - ? WHERE id = ?', [$qty, (int) $p['id']]);
+        }
     }
     $pdo->commit();
     if (aipay_prefs($merchant)['settings']['orderNew']) {
@@ -669,7 +764,8 @@ function r_aipay_order(): never
 
 function aipay_restock(int $orderId): void
 {
-    foreach (q('SELECT product_id, qty FROM aipay_order_items WHERE order_id = ? AND product_id IS NOT NULL', [$orderId])->fetchAll() as $i) {
+    foreach (q('SELECT i.product_id, i.qty FROM aipay_order_items i WHERE i.order_id = ? AND i.product_id IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM aipay_order_files f WHERE f.order_id = i.order_id AND f.product_id = i.product_id)', [$orderId])->fetchAll() as $i) {
         q('UPDATE aipay_products SET stock = stock + ? WHERE id = ?', [(int) $i['qty'], (int) $i['product_id']]);
     }
 }
@@ -754,7 +850,7 @@ function r_aipay_sale_update(): never
     $note = str_in('note', 300);
     db()->beginTransaction();
     if ($action === 'confirm_payment') {
-        q("UPDATE aipay_orders SET status = 'processing', paid_at = ? WHERE id = ?", [now_utc(), (int) $o['id']]);
+        q('UPDATE aipay_orders SET status = ?, paid_at = ? WHERE id = ?', [$o['delivery'] === 'digital' ? 'delivered' : 'processing', now_utc(), (int) $o['id']]);
         q('UPDATE aipay_products p JOIN aipay_order_items i ON i.product_id = p.id SET p.sold = p.sold + i.qty WHERE i.order_id = ?', [(int) $o['id']]);
     } elseif ($action === 'cancel') {
         q("UPDATE aipay_orders SET status = 'cancelled', cancel_note = ? WHERE id = ?", [$note ?: 'Cancelled by the store', (int) $o['id']]);
@@ -767,7 +863,7 @@ function r_aipay_sale_update(): never
     db()->commit();
     $store = $o['store_name'] ?: 'The store';
     $msg = [
-        'confirm_payment' => "Your payment of " . naira((int) $o['total']) . " for order $ref is confirmed. $store is preparing it.",
+        'confirm_payment' => "Your payment of " . naira((int) $o['total']) . " for order $ref is confirmed. " . ($o['delivery'] === 'digital' ? 'Your download is ready in My orders.' : "$store is preparing it."),
         'not_received' => "$store has not received your payment for order $ref yet. Check the transfer and tell them again when it's sent.",
         'ready' => $o['delivery'] === 'pickup' ? "Order $ref is ready for pick-up at $store." : "Order $ref is packed and ready to ship.",
         'shipped' => "Order $ref is on its way.",

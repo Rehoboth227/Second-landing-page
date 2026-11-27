@@ -30,6 +30,7 @@
     },
     { product: "airise", role: "customer", title: "Learn with AiRise", sub: "Courses, assessments, certificates" },
     { product: "airise", role: "trainer", title: "Teach on AiRise", sub: "Upload and run courses", review: true },
+    { product: "airise", role: "employer", title: "Hire from AiRise", sub: "Search learner portfolios", review: true },
   ];
   const DETAILS = {
     merchant: [
@@ -60,6 +61,12 @@
       ["experience_years", "Years of experience", "number", true],
       ["profile_url", "LinkedIn or portfolio link", "url", false, "https://"],
       ["bio", "Short bio", "textarea", false],
+    ],
+    employer: [
+      ["company_name", "Company name", "text", true],
+      ["job_title", "Your job title", "text", true, "e.g. HR manager"],
+      ["company_website", "Company website", "url", false, "https://"],
+      ["hiring_for", "Roles you hire for", "text", false, "e.g. Graduate analysts, customer service"],
     ],
   };
   const NICE = {
@@ -793,7 +800,7 @@
               aipay: ["customer", "merchant"],
               aimove: ["customer", "rider"],
               greenfed: ["customer", "employee"],
-              airise: ["customer", "trainer"],
+              airise: ["customer", "trainer", "employer"],
             }[p] || [];
       const all = user.super_admin && p !== "rehohub" ? [...roles, "admin"] : roles;
       inv.role.innerHTML = all
@@ -890,9 +897,27 @@
     };
     const courseMsg = (m, bad) =>
       ($("[data-course-msg]").innerHTML = m ? `<div class="note ${bad ? "note--bad" : ""}">${esc(m)}</div>` : "");
+    async function loadDocs(status) {
+      const box = $("#courses");
+      try {
+        const r = await RH.call("admin/airise/docs?status=" + status);
+        box.innerHTML =
+          r.items
+            .map(
+              (d) =>
+                `<article class="app-item"><div class="app-item__head"><div><b>${esc(d.title)}</b> · <span class="mute">${esc(d.folder)}</span><br><small>${esc(d.learner)} (${esc(d.email)}) · ${esc([d.profile.course, d.profile.institution].filter(Boolean).join(", ") || "no course given")}${d.profile.cgpa !== null ? " · CGPA " + d.profile.cgpa + "/" + d.profile.scale : ""} · added ${fmt(d.at)}</small></div><span class="st st--${d.status === "verified" ? "approved" : d.status === "rejected" ? "rejected" : "pending"}">${esc(d.status)}</span></div>
+                <div class="row"><a class="btn btn--sm btn--ghost" href="${esc(RH.url("api/airise/file?id=" + d.file.id))}" target="_blank" rel="noopener">Open ${esc(d.file.name)}</a>${d.status === "pending" ? `<button class="btn btn--sm btn--ok" data-doc="${d.id}" data-dd="verify">Verified</button><button class="btn btn--sm btn--bad" data-doc="${d.id}" data-dd="reject">Can't verify</button>` : ""}</div></article>`,
+            )
+            .join("") || `<p class="mute">No documents here.</p>`;
+      } catch (e) {
+        box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
+      }
+    }
     async function loadCourses() {
       const box = $("#courses");
       box.innerHTML = `<p class="mute">Loading…</p>`;
+      const sv = $("#c-status").value;
+      if (sv.startsWith("docs")) return loadDocs(sv === "docs" ? "pending" : "verified");
       try {
         const r = await RH.call("admin/airise/courses?status=" + $("#c-status").value);
         const link = (f) =>
@@ -948,6 +973,28 @@
     }
     $("#c-status").onchange = () => (courseMsg(""), loadCourses());
     $("#courses").addEventListener("click", async (e) => {
+      const dd = e.target.closest("[data-dd]");
+      if (dd) {
+        const decision = dd.dataset.dd;
+        let note = "";
+        if (decision === "reject") {
+          note = prompt("Why can't it be verified? (the learner gets this by email)") || "";
+          if (!note.trim()) return;
+        } else if (!confirm("Mark this document as verified? It will count fully in the learner's score.")) return;
+        dd.disabled = true;
+        try {
+          const r = await RH.call("admin/airise/doc", {
+            method: "POST",
+            body: { id: +dd.dataset.doc, decision, note },
+          });
+          courseMsg(r.message);
+          loadCourses();
+        } catch (er) {
+          courseMsg(er.message, true);
+          dd.disabled = false;
+        }
+        return;
+      }
       const b = e.target.closest("[data-decision]");
       if (!b) return;
       const k = b.dataset.decision;

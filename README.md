@@ -19,6 +19,8 @@ products/aipay.html            AiPay web app (Ai Pay Project Figma + prototype v
                                with points card, profile. Merchants: Profile Set Up, NGN 10,000 review
                                fee, under review / live, dashboard, sales report (CSV), market place,
                                profile, settings, notifications. Data: api/lib/aipay.php (aipay_* tables)
+products/airise/portfolio.html Learner portfolio (profile, document folders, score, suggestions)
+products/airise/talent.html    Employer talent search (approved AiRise employers)
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
                                Data on the server: api/lib/greenfed.php (gf_* tables): households, records,
                                plans, groceries, staff work, communities. Prices and bank set by admins
@@ -105,9 +107,20 @@ Everything is stored on the server (`api/lib/airise.php`, `airise_*` tables from
 - **Trainers** write a course in four steps. Lesson files (video, audio, PDF, slides, Word) and the cover upload
   straight away in 4 MB pieces to a private folder, and are only handed out to the trainer, AiRise
   administrators and, once the course is published, signed-in AiRise learners (videos stream with seeking).
+- **Portfolios**: learners record their course of study, grade, career path and a summary, and file documents
+  in four folders (results, certificates, projects, references) on `products/airise/portfolio.html`.
+  Administrators verify documents; a score out of 100 (certificates 35, grades 25, documents 30, profile 10)
+  ranks learners within their career path and drives course suggestions. Approved **employers** search
+  portfolios that learners chose to show on `products/airise/talent.html`.
 - **Administrators** review submitted courses in the admin console (**AiRise courses**), see the quiz answers,
   preview the course, and publish it or send it back with a note (the trainer is emailed). Quizzes on trainer
   courses are marked by the server; learners never receive the answers.
+
+## AiPay digital products
+
+Sellers can sell e-books and audiobooks: the file is uploaded to private server storage
+(`api/lib/uploads.php`, `aipay_files`), never kept on the seller's device, and the buyer downloads it from
+their order once the seller confirms payment. Orders of only downloads skip delivery.
 
 ## AiMove web app
 

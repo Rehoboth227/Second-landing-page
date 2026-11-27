@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS memberships (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id      INT UNSIGNED NOT NULL,
   product      ENUM('rehohub','aipay','aimove','greenfed','airise') NOT NULL,
-  role         ENUM('customer','rider','merchant','employee','trainer','admin') NOT NULL,
+  role         ENUM('customer','rider','merchant','employee','trainer','employer','admin') NOT NULL,
   -- customers are approved automatically; riders, merchants, employees and trainers wait
   -- for an administrator; admins are created by invitation only
   status       ENUM('pending','approved','rejected','suspended') NOT NULL DEFAULT 'pending',
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS aipay_orders (
   buyer_id      INT UNSIGNED NOT NULL,
   merchant_id   INT UNSIGNED NOT NULL,
   status        ENUM('awaiting_payment','payment_sent','processing','ready','shipped','delivered','cancelled') NOT NULL DEFAULT 'awaiting_payment',
-  delivery      ENUM('pickup','delivery') NOT NULL,
+  delivery      ENUM('pickup','delivery','digital') NOT NULL,
   address       TEXT         NULL,               -- JSON: street, city, state, phone
   subtotal      INT UNSIGNED NOT NULL,
   delivery_fee  INT UNSIGNED NOT NULL DEFAULT 0,
@@ -720,4 +720,78 @@ CREATE TABLE IF NOT EXISTS airise_certs (
   UNIQUE KEY airise_certs_number (number),
   UNIQUE KEY airise_certs_once (user_id, course),
   CONSTRAINT fk_aircert_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- (also in migrations-005-portfolios-and-ebooks.sql)
+-- ------------------------------------------------------------------ AiRise portfolios
+-- A learner's profile for employers. visible = 1 means approved employers can find it.
+CREATE TABLE IF NOT EXISTS airise_profiles (
+  user_id          INT UNSIGNED NOT NULL,
+  course_of_study  VARCHAR(120) NULL,
+  institution      VARCHAR(120) NULL,
+  level            VARCHAR(40)  NULL,            -- e.g. Final year, Graduate
+  grade            VARCHAR(60)  NULL,            -- e.g. Second Class Upper
+  cgpa             DECIMAL(4,2) NULL,
+  cgpa_scale       TINYINT UNSIGNED NOT NULL DEFAULT 5,
+  career           VARCHAR(20)  NULL,            -- a key from AIR_CAREERS in api/lib/airise.php
+  about            VARCHAR(600) NULL,
+  visible          TINYINT(1)   NOT NULL DEFAULT 0,
+  updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  KEY airise_profiles_career (career, visible),
+  CONSTRAINT fk_airprof_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Documents in a learner's portfolio folders (results, certificates, projects, references).
+-- AiRise administrators verify them; verified documents count fully in the portfolio score.
+CREATE TABLE IF NOT EXISTS airise_docs (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id      INT UNSIGNED NOT NULL,
+  folder       VARCHAR(20)  NOT NULL,
+  title        VARCHAR(120) NOT NULL,
+  file_id      INT UNSIGNED NOT NULL,           -- airise_files
+  status       ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+  note         VARCHAR(300) NULL,
+  reviewed_by  INT UNSIGNED NULL,
+  reviewed_at  DATETIME     NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY airise_docs_user (user_id, folder),
+  KEY airise_docs_status (status),
+  CONSTRAINT fk_airdoc_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------ AiPay digital products
+-- Files sellers upload (kept in the private storage folder, never in a public web folder).
+CREATE TABLE IF NOT EXISTS aipay_files (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner_id    INT UNSIGNED NOT NULL,
+  name        VARCHAR(160) NOT NULL,
+  mime        VARCHAR(100) NOT NULL,
+  size        BIGINT UNSIGNED NOT NULL,
+  received    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  stored_as   VARCHAR(64)  NOT NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY aipay_files_owner (owner_id),
+  CONSTRAINT fk_apfile_user FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- A product with a row here is a digital download.
+CREATE TABLE IF NOT EXISTS aipay_downloads (
+  product_id  INT UNSIGNED NOT NULL,
+  file_id     INT UNSIGNED NOT NULL,
+  PRIMARY KEY (product_id),
+  CONSTRAINT fk_apdl_product FOREIGN KEY (product_id) REFERENCES aipay_products (id) ON DELETE CASCADE,
+  CONSTRAINT fk_apdl_file FOREIGN KEY (file_id) REFERENCES aipay_files (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The file each buyer bought, kept even if the seller later changes the product.
+CREATE TABLE IF NOT EXISTS aipay_order_files (
+  order_id    INT UNSIGNED NOT NULL,
+  product_id  INT UNSIGNED NOT NULL,
+  file_id     INT UNSIGNED NOT NULL,
+  PRIMARY KEY (order_id, product_id),
+  CONSTRAINT fk_apof_order FOREIGN KEY (order_id) REFERENCES aipay_orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_apof_file FOREIGN KEY (file_id) REFERENCES aipay_files (id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

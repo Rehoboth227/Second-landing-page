@@ -258,6 +258,23 @@
       URL.revokeObjectURL(url);
     }
   }
+  const mb = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
+  const BOOK_TYPES = ".pdf,.epub,.mobi,.azw3,.mp3,.m4a,.m4b";
+  // Sends an e-book or audiobook to the server in 4 MB pieces. Returns the stored file.
+  async function uploadBook(file, onPct) {
+    const st = await POST("aipay/file/start", { name: file.name, size: file.size });
+    let off = 0;
+    let out = null;
+    while (off < file.size) {
+      const r = await RH.raw("aipay/file/chunk?id=" + st.id + "&offset=" + off, file.slice(off, off + st.chunk));
+      off = r.received;
+      onPct(Math.round((off / file.size) * 100));
+      if (r.done) out = r.file;
+    }
+    return out;
+  }
+  const downloadUrl = (code, pid) =>
+    RH.url("api/aipay/download?" + (code ? "code=" + encodeURIComponent(code) + "&" : "") + "product=" + pid);
   // An upload box (click, or drag and drop a picture onto it).
   function bindUpload(boxSel, inputName, label) {
     const boxEl = $(boxSel);
@@ -468,7 +485,7 @@
   }
   const productCard = (p) =>
     `<article class="pcard"><button type="button" class="pcard__img" data-product="${p.id}" aria-label="View ${esc(p.name)}">${p.image_id ? `<img src="${esc(img(p.image_id))}" alt="" loading="lazy" />` : ic("bag")}</button>
-      <div class="pcard__body"><h3>${esc(p.name)}</h3><small>${esc(p.store)}${p.city ? " · " + esc(p.city) : ""}</small>
+      <div class="pcard__body"><h3>${esc(p.name)}</h3><small>${p.digital ? `<b>${esc(p.format)} download</b> · ` : ""}${esc(p.store)}${p.city ? " · " + esc(p.city) : ""}</small>
       <div class="pcard__row"><b>${ngn(p.price)}</b>${p.stock > 0 ? `<button type="button" class="plus" data-product="${p.id}" data-quick aria-label="Add ${esc(p.name)} to cart">${ic("plus")}</button>` : `<span class="soldout">Sold out</span>`}</div></div></article>`;
 
   function locationModal() {
@@ -509,9 +526,9 @@
       <div class="pd__img">${p.image_id ? `<img src="${esc(img(p.image_id))}" alt="${esc(p.name)}" />` : ic("bag")}</div>
       <div class="pd__body"><h3>${esc(p.name)}</h3><p class="pd__price">${ngn(p.price)}</p>
         <p class="pd__store">${esc(p.store)}${p.city ? " · " + esc(p.city) + ", " + esc(p.state) : ""}</p>
-        ${p.stock > 0 ? `<div class="pd__qty"><span>Quantity</span>${stepper("pq", 1)}</div>` : `<p class="soldout">Sold out</p>`}
+        ${p.digital ? `<p class="alert alert--info" style="margin:0">${ic("doc")} Digital download: ${esc(p.format)}, ${mb(p.file_size)}. Download it from <b>My orders</b> as soon as the store confirms your payment. Nothing is delivered.</p>` : p.stock > 0 ? `<div class="pd__qty"><span>Quantity</span>${stepper("pq", 1)}</div>` : `<p class="soldout">Sold out</p>`}
         ${p.description ? `<h4>Description</h4><p class="pd__desc">${esc(p.description)}</p>` : ""}
-        <p class="pd__stock">${p.stock > 0 ? p.stock + " in stock" : ""}</p>
+        <p class="pd__stock">${!p.digital && p.stock > 0 ? p.stock + " in stock" : ""}</p>
         ${p.stock > 0 ? `<div class="grid" style="gap:10px;grid-template-columns:1fr 1fr"><button class="btn btn--line" type="button" id="addC">Add to cart</button><button class="btn" type="button" id="buyN">Buy now</button></div>` : ""}
       </div></div>`,
       "modal--wide",
@@ -527,12 +544,13 @@
         toast("Removed from cart");
       });
     if (p.stock <= 0) return;
-    bindStepper(
-      box,
-      "pq",
-      () => qty,
-      (v) => (qty = Math.max(1, Math.min(p.stock, v))),
-    );
+    if (!p.digital)
+      bindStepper(
+        box,
+        "pq",
+        () => qty,
+        (v) => (qty = Math.max(1, Math.min(p.stock, v))),
+      );
     $("#addC", box).addEventListener("click", () => addToCart(p, qty));
     $("#buyN", box).addEventListener("click", () => addToCart(p, qty, true));
   }
@@ -570,6 +588,8 @@
         image_id: p.image_id,
         qty: Math.min(p.stock, qty),
         stock: p.stock,
+        digital: !!p.digital,
+        format: p.format || "",
       });
     cart.set(c);
     if (open) return cartModal();
@@ -590,23 +610,25 @@
       <div class="citems">${c.items
         .map(
           (i) =>
-            `<div class="citem"><div class="citem__img">${i.image_id ? `<img src="${esc(img(i.image_id))}" alt="" />` : ic("bag")}</div><div class="citem__body"><b>${esc(i.name)}</b><span>${ngn(i.price)}</span></div>${stepper("c" + i.id, i.qty)}<button type="button" class="kebab" data-rm="${i.id}" aria-label="Remove ${esc(i.name)}">${ic("x")}</button></div>`,
+            `<div class="citem"><div class="citem__img">${i.image_id ? `<img src="${esc(img(i.image_id))}" alt="" />` : ic("bag")}</div><div class="citem__body"><b>${esc(i.name)}</b><span>${ngn(i.price)}${i.digital ? " · " + esc(i.format) + " download" : ""}</span></div>${i.digital ? "<span></span>" : stepper("c" + i.id, i.qty)}<button type="button" class="kebab" data-rm="${i.id}" aria-label="Remove ${esc(i.name)}">${ic("x")}</button></div>`,
         )
         .join("")}</div>
       <button type="button" class="link center" data-close data-goshop>Add more items ↗</button>
       <button class="btn btn--block" type="button" id="toCheckout">Checkout (${ngn(cart.total())})</button>`);
-    c.items.forEach((i) =>
-      bindStepper(
-        box,
-        "c" + i.id,
-        () => i.qty,
-        (v) => {
-          i.qty = Math.max(1, Math.min(i.stock || 99, v));
-          cart.set(c);
-          $("#toCheckout", box).textContent = `Checkout (${ngn(cart.total())})`;
-        },
-      ),
-    );
+    c.items
+      .filter((i) => !i.digital)
+      .forEach((i) =>
+        bindStepper(
+          box,
+          "c" + i.id,
+          () => i.qty,
+          (v) => {
+            i.qty = Math.max(1, Math.min(i.stock || 99, v));
+            cart.set(c);
+            $("#toCheckout", box).textContent = `Checkout (${ngn(cart.total())})`;
+          },
+        ),
+      );
     $$("[data-rm]", box).forEach((b) =>
       b.addEventListener("click", () => {
         c.items = c.items.filter((i) => i.id !== +b.dataset.rm);
@@ -616,6 +638,11 @@
     );
     $("#toCheckout", box).addEventListener("click", () => {
       if (!SESSION || !SESSION.user) return (location.href = RH.loginUrl(location.pathname + "#/store?cart=1"));
+      // Only downloads in the cart: nothing to deliver.
+      if (c.items.every((i) => i.digital)) {
+        CO.delivery = "digital";
+        return summaryModal();
+      }
       deliveryModal();
     });
   }
@@ -695,13 +722,13 @@
     const box = modal(`${xBtn}${back()}<h2 class="mh">Summary</h2>
       <div class="tbl-wrap"><table class="tbl tbl--sum"><thead><tr><th>Product</th><th>Quantity</th><th>Amount</th></tr></thead><tbody>
       ${c.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.qty}</td><td>${ngn(i.price * i.qty)}</td></tr>`).join("")}
-      <tr><td>Delivery Cost</td><td></td><td>${CO.delivery === "pickup" ? "Free (pick-up)" : "Added when you continue"}</td></tr>
+      <tr><td>Delivery Cost</td><td></td><td>${CO.delivery === "digital" ? "None (download)" : CO.delivery === "pickup" ? "Free (pick-up)" : "Added when you continue"}</td></tr>
       <tr class="sum-total"><td>Subtotal</td><td></td><td>${ngn(sub)}</td></tr>
       </tbody></table></div>
-      <p class="hint" style="margin:0">${CO.delivery === "pickup" ? `Pick up from ${esc(c.store)}.` : `Deliver to ${esc([CO.address.street, CO.address.city, CO.address.state].join(", "))}.`} You'll earn about ${Math.floor(sub / 100).toLocaleString("en-NG")} points.</p>
+      <p class="hint" style="margin:0">${CO.delivery === "digital" ? "You'll download your purchase from My orders once the store confirms your payment." : CO.delivery === "pickup" ? `Pick up from ${esc(c.store)}.` : `Deliver to ${esc([CO.address.street, CO.address.city, CO.address.state].join(", "))}.`}${c.items.some((i) => i.digital) && CO.delivery !== "digital" ? " Downloads are ready in My orders once payment is confirmed." : ""} You'll earn about ${Math.floor(sub / 100).toLocaleString("en-NG")} points.</p>
       <button type="button" class="link center" id="editItems">Edit items ↗</button>
       <form id="placeF" class="grid" novalidate><button class="btn btn--block" type="submit">Make Payment</button></form>`);
-    $("[data-back]", box).addEventListener("click", addressModal);
+    $("[data-back]", box).addEventListener("click", CO.delivery === "digital" ? cartModal : addressModal);
     $("#editItems", box).addEventListener("click", cartModal);
     $("#placeF", box).addEventListener("submit", (e) => {
       e.preventDefault();
@@ -709,7 +736,11 @@
         const r = await POST("aipay/orders", {
           items: c.items.map((i) => ({ product_id: i.id, qty: i.qty })),
           delivery: CO.delivery,
-          ...(CO.delivery === "delivery" ? { address: CO.address } : { phone: CO.phone }),
+          ...(CO.delivery === "delivery"
+            ? { address: CO.address }
+            : CO.delivery === "pickup"
+              ? { phone: CO.phone }
+              : {}),
         });
         cart.set({ merchant_id: 0, store: "", items: [] });
         paymentMethodModal(r.order);
@@ -844,9 +875,13 @@
       processing: "Payment confirmed",
       ready: o.delivery === "pickup" ? "Ready for pick-up" : "Packed",
       shipped: "On the way",
-      delivered: o.delivery === "pickup" ? "Collected" : "Delivered",
+      delivered: o.delivery === "digital" ? "Download ready" : o.delivery === "pickup" ? "Collected" : "Delivered",
     };
-    return `<ol class="tl">${STEPS.filter((s) => !(o.delivery === "pickup" && s === "shipped"))
+    return `<ol class="tl">${STEPS.filter(
+      (s) =>
+        !(o.delivery === "pickup" && s === "shipped") &&
+        !(o.delivery === "digital" && ["processing", "ready", "shipped"].includes(s)),
+    )
       .map((s) => `<li class="${STEPS.indexOf(s) <= at ? "is-done" : ""}">${label[s]}</li>`)
       .join("")}</ol>`;
   }
@@ -854,8 +889,20 @@
     const box = modal(`${xBtn}<h2 class="mh">Order #${esc(o.code)}</h2>
       <p class="hint" style="margin:-8px 0 0">${esc(o.store_name || "")} · ${fmtDateTime(o.created_at)}</p>
       ${timeline(o)}
-      <dl class="dl">${o.items.map((i) => `<div><dt>${esc(i.name)} × ${i.qty}</dt><dd>${ngn(i.price * i.qty)}</dd></div>`).join("")}
-        <div><dt>Delivery</dt><dd>${o.delivery === "pickup" ? "Pick-up" : ngn(o.delivery_fee)}</dd></div>
+      ${
+        o.items.some((i) => i.digital)
+          ? `<div class="grid" style="gap:8px">${o.items
+              .filter((i) => i.digital)
+              .map((i) =>
+                i.download
+                  ? `<a class="btn btn--block" href="${esc(downloadUrl(o.code, i.product_id))}" download>${ic("doc")} Download ${esc(i.name)} (${esc(i.format)}, ${mb(i.file_size)})</a>`
+                  : `<p class="hint" style="margin:0">${ic("doc")} ${esc(i.name)}: your download appears here once the store confirms your payment.</p>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      <dl class="dl">${o.items.map((i) => `<div><dt>${esc(i.name)} × ${i.qty}${i.digital ? " (" + esc(i.format) + ")" : ""}</dt><dd>${ngn(i.price * i.qty)}</dd></div>`).join("")}
+        <div><dt>Delivery</dt><dd>${o.delivery === "digital" ? "Download" : o.delivery === "pickup" ? "Pick-up" : ngn(o.delivery_fee)}</dd></div>
         <div><dt>Total</dt><dd>${ngn(o.total)}</dd></div>
         <div><dt>Status</dt><dd>${pill(o.status)}</dd></div></dl>
       ${o.status === "awaiting_payment" ? `<button class="btn btn--block" type="button" id="payNow">Pay now</button>` : ""}
@@ -1424,7 +1471,7 @@
         <div><dt>Date &amp; Time</dt><dd>${fmtDateTime(o.created_at)}</dd></div>
         <div><dt>Order ID</dt><dd>${esc(o.code)}<button class="copy" type="button" id="cpO" aria-label="Copy order ID">${ic("copy")}</button></dd></div>
         ${o.items.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${i.qty} × ${ngn(i.price)}</dd></div>`).join("")}
-        <div><dt>${o.delivery === "pickup" ? "Pick-up" : "Deliver to"}</dt><dd>${o.delivery === "pickup" ? "At your store" : esc([a.street, a.city, a.state].filter(Boolean).join(", "))}</dd></div>
+        <div><dt>${o.delivery === "digital" ? "Delivery" : o.delivery === "pickup" ? "Pick-up" : "Deliver to"}</dt><dd>${o.delivery === "digital" ? "Download: the buyer gets the file once you confirm payment" : o.delivery === "pickup" ? "At your store" : esc([a.street, a.city, a.state].filter(Boolean).join(", "))}</dd></div>
         <div><dt>Phone</dt><dd>${a.phone ? `<a href="tel:${esc(a.phone)}">${esc(a.phone)}</a>` : ""}</dd></div>
         ${o.pay_sender ? `<div><dt>Paid from</dt><dd>${esc(o.pay_sender)} (${esc(o.pay_bank || "")})</dd></div>` : ""}
         <div><dt>Status</dt><dd>${pill(o.status)}</dd></div>
@@ -1482,7 +1529,7 @@
           ? `<div class="pgrid pgrid--4">${list
               .map(
                 (p) =>
-                  `<article class="pcard"><a class="pcard__img" href="#/products/edit/${p.id}" aria-label="Edit ${esc(p.name)}">${p.image_id ? `<img src="${esc(img(p.image_id))}" alt="" loading="lazy" />` : ic("bag")}<span class="pcard__edit">${ic("edit")}</span></a><div class="pcard__body"><h3>${esc(p.name)}</h3><div class="pcard__meta"><span>Quantity</span><b>${p.stock} pcs</b><span>Price</span><b>${ngn(p.price)}</b></div>${p.stock < 5 ? `<small class="low">${p.stock ? "Low on stock" : "Out of stock"}</small>` : ""}</div></article>`,
+                  `<article class="pcard"><a class="pcard__img" href="#/products/edit/${p.id}" aria-label="Edit ${esc(p.name)}">${p.image_id ? `<img src="${esc(img(p.image_id))}" alt="" loading="lazy" />` : ic("bag")}<span class="pcard__edit">${ic("edit")}</span></a><div class="pcard__body"><h3>${esc(p.name)}</h3><div class="pcard__meta"><span>${p.digital ? "Type" : "Quantity"}</span><b>${p.digital ? esc(p.format) + " download" : p.stock + " pcs"}</b><span>Price</span><b>${ngn(p.price)}</b></div>${!p.digital && p.stock < 5 ? `<small class="low">${p.stock ? "Low on stock" : "Out of stock"}</small>` : ""}</div></article>`,
               )
               .join("")}</div>`
           : `<div class="card empty">${ic("bag")}<p style="margin:0">Nothing is here</p><a class="btn btn--sm" href="#/products/new">Add Product</a></div>`
@@ -1503,7 +1550,15 @@
         <div class="setup">
           <section class="card setup__main"><h2>${p ? "Edit Product Details" : "Add Product"}</h2>
             ${field("name", "Name of product", p ? p.name : "", 'required maxlength="80" placeholder="Chicken burger"')}
-            <div class="grid2">${field("price", "Product price (NGN)", p ? p.price : "", 'inputmode="numeric" required placeholder="NGN 2,000"')}${field("stock", "Quantity of product", p ? p.stock : "", 'inputmode="numeric" required placeholder="20"')}</div>
+            <label class="check"><input type="checkbox" id="isDigital" ${p && p.digital ? "checked" : ""} />This is a digital download (e-book or audiobook)</label>
+            <div class="grid2">${field("price", "Product price (NGN)", p ? p.price : "", 'inputmode="numeric" required placeholder="NGN 2,000"')}<div id="stockWrap" ${p && p.digital ? "hidden" : ""}>${field("stock", "Quantity of product", p && !p.digital ? p.stock : "", 'inputmode="numeric" placeholder="20"')}</div></div>
+            <div id="bookWrap" class="card" style="padding:14px;display:grid;gap:8px" ${p && p.digital ? "" : "hidden"}>
+              <b>E-book or audiobook file</b>
+              <small class="hint" style="margin:0">PDF, EPUB, MOBI, AZW3, MP3, M4A or M4B. It is kept privately on AiPay's server, not on your device, and each buyer can download it from their order once you confirm their payment.</small>
+              <div id="bookFile">${p && p.file ? `${ic("doc")} <b>${esc(p.file.name)}</b> · ${mb(p.file.size)} · <a href="${esc(downloadUrl("", p.id))}">Download your copy</a>` : "No file yet"}</div>
+              <label class="btn btn--sm btn--line" style="justify-self:start">${p && p.file ? "Replace file" : "Choose file"}<input type="file" id="bookIn" accept="${BOOK_TYPES}" class="sr" /></label>
+              <input type="hidden" name="file_id" value="${p && p.file ? p.file.id : ""}" />
+            </div>
             ${select("category", "Category", r.categories, p ? p.category : (ME.store && ME.store.category) || "", "Select category")}
             <label class="field"><span>Description of product</span><textarea name="description" maxlength="600" placeholder="Enter product description">${esc(p ? p.description || "" : "")}</textarea></label>
           </section>
@@ -1512,9 +1567,32 @@
     );
     bindUpload("#pImgBox", "image_id", "Product picture");
     const f = $("#pF");
+    let bookBusy = false;
+    $("#isDigital").addEventListener("change", (e) => {
+      $("#bookWrap").hidden = !e.target.checked;
+      $("#stockWrap").hidden = e.target.checked;
+    });
+    $("#bookIn").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      bookBusy = true;
+      $("#bookFile").textContent = `Uploading ${file.name}: 0%`;
+      try {
+        const saved = await uploadBook(file, (pc) => ($("#bookFile").textContent = `Uploading ${file.name}: ${pc}%`));
+        f.file_id.value = saved.id;
+        $("#bookFile").innerHTML = `${ic("doc")} <b>${esc(saved.name)}</b> · ${mb(saved.size)} · uploaded`;
+      } catch (er) {
+        $("#bookFile").textContent = "Not uploaded: " + er.message;
+        toast(er.message);
+      }
+      bookBusy = false;
+    });
     f.addEventListener("submit", (e) => {
       e.preventDefault();
       const v = values(f);
+      const digital = $("#isDigital").checked;
+      if (bookBusy) return toast("Wait for the file to finish uploading");
+      if (digital && !v.file_id) return toast("Upload the e-book or audiobook file first");
       const body = {
         id: p ? p.id : 0,
         name: v.name,
@@ -1523,6 +1601,7 @@
         stock: +String(v.stock).replace(/[^\d]/g, "") || 0,
         description: v.description,
         image_id: v.image_id ? +v.image_id : 0,
+        file_id: digital ? +v.file_id : 0,
       };
       submit(f, async () => {
         await POST("aipay/my-products", body);

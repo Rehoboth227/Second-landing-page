@@ -11,6 +11,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib/core.php';
+require __DIR__ . '/lib/uploads.php';
 require __DIR__ . '/lib/aipay.php';
 require __DIR__ . '/lib/aimove.php';
 require __DIR__ . '/lib/greenfed.php';
@@ -40,7 +41,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'POST') {
     $type = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
     // AiRise lesson files arrive in raw 4 MB pieces; everything else is JSON.
-    $raw = $route === 'airise/upload/chunk' && str_starts_with($type, 'application/octet-stream');
+    $raw = in_array($route, ['airise/upload/chunk', 'aipay/file/chunk'], true) && str_starts_with($type, 'application/octet-stream');
     if (!$raw && !str_starts_with($type, 'application/json')) {
         fail(415, 'json_only', 'Send JSON.');
     }
@@ -100,6 +101,9 @@ $routes = [
     'POST aipay/sales' => 'r_aipay_sale_update',
     'GET aipay/dashboard' => 'r_aipay_dashboard',
     'POST admin/aipay/fee' => 'r_aipay_admin_fee',
+    'POST aipay/file/start' => 'r_aipay_file_start',
+    'POST aipay/file/chunk' => 'r_aipay_file_chunk',
+    'GET aipay/download' => 'r_aipay_download',
     // AiRise (api/lib/airise.php)
     'GET airise/state' => 'r_air_state',
     'GET airise/course' => 'r_air_course',
@@ -112,6 +116,13 @@ $routes = [
     'POST airise/upload/chunk' => 'r_air_upload_chunk',
     'GET admin/airise/courses' => 'r_air_admin_courses',
     'POST admin/airise/review' => 'r_air_admin_review',
+    'GET airise/portfolio' => 'r_air_portfolio',
+    'POST airise/portfolio' => 'r_air_portfolio_save',
+    'POST airise/portfolio/doc' => 'r_air_portfolio_doc',
+    'GET airise/talent' => 'r_air_talent',
+    'GET airise/talent/one' => 'r_air_talent_one',
+    'GET admin/airise/docs' => 'r_air_admin_docs',
+    'POST admin/airise/doc' => 'r_air_admin_doc',
     // AiMove (api/lib/aimove.php)
     'GET aimove/config' => 'r_am_config',
     'GET aimove/state' => 'r_am_state',
