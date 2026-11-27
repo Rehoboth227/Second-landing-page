@@ -20,6 +20,8 @@ products/aipay.html            AiPay web app (Ai Pay Project Figma + prototype v
                                fee, under review / live, dashboard, sales report (CSV), market place,
                                profile, settings, notifications. Data: api/lib/aipay.php (aipay_* tables)
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
+                               Data on the server: api/lib/greenfed.php (gf_* tables): households, records,
+                               plans, groceries, staff work, communities. Prices and bank set by admins
 products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send.
                                Data on the server: api/lib/aimove.php (aimove_* tables): deliveries,
                                escrow wallet, rider earnings and payouts, messages, notifications.
@@ -55,7 +57,7 @@ assets/js/aimove-app.js        AiMove web app: data, escrow wallet, routing and 
 assets/js/aimove-pricing.js    AiMove fare calculator (naira): rates, markups, commission, used everywhere
 assets/js/aimove-calculator.js Public fare calculator widget on the RehoTrans page
 assets/css/greenfed-app.css    GreenFed web app styles (light and dark)
-assets/js/greenfed-app.js      GreenFed web app: meal library, catalogue, pricing, routing and every screen
+assets/js/greenfed-app.js      GreenFed web app: meal library, routing and every screen (data from the API)
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
 assets/css/airise-app.css      AiRise app pages (dashboard, course player, trainer studio)
 assets/js/airise-app.js        AiRise course data, dashboard and course player
@@ -142,22 +144,23 @@ Figma screens (onboarding, sign-in and sign-up, health records, meal plans, groc
 notifications) and the GreenFed requirements:
 
 - **Customers** add family members and allergies, request a meal plan (members, duration, meals, allergies),
-  review the price and pay, then follow it from payment to delivery. Delivered plans show day by day and per
-  person, avoid each person's allergies, and can be downloaded, shared and reviewed. The grocery store has
-  categories, offers, favourites and "from my plan" shopping, an allergy check in the cart, weekly delivery
-  slots and stage-by-stage tracking with reviews and late or poor-quality reports. Communities can be public
-  or private, with posts, nested replies and sharing.
+  review the price and pay by bank transfer to GreenFed, then follow it from payment to delivery. Delivered
+  plans show day by day, and can be downloaded, shared and reviewed. The grocery store has categories,
+  offers, favourites and "from my plan" shopping, an allergy check in the cart, weekly delivery slots and
+  stage-by-stage tracking with ratings and late or poor-quality reports. Customers and health specialists
+  can create communities, public or private (the creator approves who joins), with posts and nested replies.
 - **Employees** (nutritionist, supply manager, quality assurance, packaging and delivery, health specialist,
-  supplier) work one order at a time, see a work meter with expected earnings, save salary details and log
-  complaints.
-- **Administrators** see every order with who ordered and who picked it, change user status (active, warning,
-  ban, deactivate), resolve conflicts (late delivery: waive the next delivery; poor quality: recall and
-  resupply), pay staff and handle complaints.
+  supplier) see only their own queue and hold one order at a time. Nutritionists edit a 7-day plan drafted
+  from the meal library around the plan's allergies before delivering it. The work meter shows what a
+  nutritionist is owed per plan; the others are salaried or contracted outside the app, so it only counts.
+- **Administrators** confirm customers' transfers (staff only see an order after that), set the meal-plan
+  price, the nutritionist rate, every grocery price and discount and the bank account, mark nutritionists
+  paid, reset meters, resolve conflicts (late delivery: waive the next delivery; poor quality: recall and
+  resupply) and handle staff complaints. User status and staff approvals live in the Rehohub admin console.
 
-Sign-in and roles are real (see "Accounts and roles"); an employee's type comes from their approved
-application. Meal plans, orders and records are still saved per account on the device, card payments are not
-connected, and prices (US dollars, as in the design; $37.50 per person per week for meal plans) and the
-sample orders in staff queues are placeholders until ordering is connected to the database.
+Everything is stored on the server (`api/lib/greenfed.php`, `gf_*` tables from
+`database/migrations-003-greenfed.sql`); the browser only keeps the cart and the side last used. Prices are
+in naira and the server works out every total. Starting prices are placeholders for administrators to change.
 
 ## Accounts and roles
 

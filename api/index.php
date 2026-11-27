@@ -13,6 +13,7 @@ declare(strict_types=1);
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/aipay.php';
 require __DIR__ . '/lib/aimove.php';
+require __DIR__ . '/lib/greenfed.php';
 
 security_headers();
 set_exception_handler(function (Throwable $e) {
@@ -112,6 +113,21 @@ $routes = [
     'GET aimove/messages' => 'r_am_messages',
     'POST aimove/messages' => 'r_am_send',
     'POST aimove/notes' => 'r_am_notes',
+    // GreenFed (api/lib/greenfed.php)
+    'GET greenfed/state' => 'r_gf_state',
+    'POST greenfed/profile' => 'r_gf_profile',
+    'POST greenfed/member' => 'r_gf_member',
+    'POST greenfed/record' => 'r_gf_record',
+    'POST greenfed/fav' => 'r_gf_fav',
+    'POST greenfed/order' => 'r_gf_order',
+    'POST greenfed/order/act' => 'r_gf_order_act',
+    'POST greenfed/work' => 'r_gf_work',
+    'POST greenfed/salary' => 'r_gf_salary',
+    'POST greenfed/complaint' => 'r_gf_complaint',
+    'POST greenfed/admin' => 'r_gf_admin',
+    'POST greenfed/community' => 'r_gf_community',
+    'POST greenfed/post' => 'r_gf_post',
+    'POST greenfed/misc' => 'r_gf_misc',
     'GET setup/status' => 'r_setup_status',
     'POST setup' => 'r_setup',
 ];

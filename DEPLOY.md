@@ -144,6 +144,63 @@ an administrator):
 
 Riders must be approved in **Admin console → Applications** before they can take jobs.
 
+## Updating a site that is already live: GreenFed on the server (November 2026)
+
+GreenFed now keeps households, health records, meal plans, grocery orders, staff work and
+communities in your database instead of on each person's device. Add the new tables once:
+
+1. cPanel → **phpMyAdmin** → your Rehohub database → **SQL** tab.
+2. Paste everything from `database/migrations-003-greenfed.sql` and press **Go**. It only adds
+   tables whose names start with `gf_`, plus the starting prices, the grocery list and six
+   starter communities. Running it again does not change prices you have already set.
+3. Upload the new files as usual (Step 1), including `api/lib/greenfed.php`.
+
+Anything people did in GreenFed before this update was only saved in their own browser, so it
+does not carry over: everyone starts with an empty household and no orders.
+
+**Set your prices first.** Sign in as an administrator, open GreenFed → **Prices and bank**:
+
+- **Meal plan price** per person per week (starts at ₦25,000) and the **nutritionist's pay per
+  delivered plan** (starts at ₦3,000). These are placeholders: change them before launch.
+- The **grocery items**: price, unit, discount, what each contains (allergies), and whether it is
+  on sale. Every item price is a placeholder too.
+- The **bank account customers pay into**. It is set to **Access Bank, 0790145581, "GreenFed"**.
+  Correct the account name to match the bank's records exactly.
+
+New prices only apply to new orders. The server works out every price; nobody can change one
+from their browser.
+
+**How a GreenFed order works:**
+
+1. A customer orders a meal plan or groceries and sees GreenFed's bank account and a reference
+   (for example GF-12). They transfer the money and press **I've sent the money**, giving the
+   name and bank they paid from. You get an email.
+2. Check the Access Bank account, then open GreenFed → **Overview → Payments to confirm** and
+   press **Money received** (or **Not received**, with a message; the customer is asked to check).
+   Nobody can confirm a payment for their own order.
+3. Only after you confirm does the order reach staff. Meal plans go to nutritionists: one picks
+   it, writes the 7-day plan (drafted from the meal library around the allergies, then edited)
+   and delivers it. Groceries go supplier → supply manager → quality assurance → packaging and
+   delivery. The customer sees each step and the name of whoever is working on it.
+4. Customers can cancel only before you confirm payment. After that, a cancellation and refund
+   is handled by you, outside the app.
+
+**Paying staff:**
+
+- **Nutritionists** are paid per delivered meal plan. Overview → **Staff work meters** shows what
+  each is owed and the bank account they saved. Pay them by transfer, then press **Mark ₦… paid**;
+  their counter starts again.
+- **Everyone else** (supply manager, quality assurance, packaging and delivery, health
+  specialist) is on salary, and **suppliers** are partners paid per delivery contract, both
+  outside the app. Their meter only counts work; press **Reset counter** at the start of each cycle.
+
+**Communities:** six starter communities are added (Allergies, Balanced diet, Weight, Diet and
+diabetes, Food & craft, Recovery kitchen). Customers and health specialists can create more,
+public or private; the creator approves who joins a private one. Administrators can remove any post.
+
+Approve GreenFed staff in **Admin console → Applications**; their type (nutritionist, supplier
+and so on) comes from their application.
+
 ## Google Maps for AiMove (optional, recommended)
 
 Without keys, AiMove estimates distances from the addresses and shows an illustrated map. With
@@ -219,10 +276,9 @@ offline.
 
 ## What is still front-end only (next phases)
 
-- **Product data**: GreenFed meal plans, orders and records, and AiRise course progress are
-  still saved **per account on the person's device** (AiPay and AiMove are already in the
-  database). The apps say so with a "Preview" note. Moving each into the database is the next
-  phase, one product at a time.
+- **Product data**: AiRise course progress is still saved **per account on the person's
+  device** (AiPay, AiMove and GreenFed are in the database). The app says so with a "Preview"
+  note. Moving it into the database is the next phase.
 - **Payments** (Paystack or Flutterwave), **document uploads** (ID, licence, CAC certificate) for
   approvals, **two-factor sign-in for administrators**, and the **terms and privacy policy pages**
   (the sign-up form links to the contact section for now).

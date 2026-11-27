@@ -2,8 +2,10 @@
    Built from the "GreenFed USERS DESIGN" Figma file and the GreenFed requirements
    (customer, employee and administrator sides). Sign-in, sign-up, approvals and roles use
    the shared Rehohub account system (/api, via rh-auth.js): the server decides who may use
-   which side. Meal plans, orders and records are still saved per account on this device,
-   and card payments are not connected yet. Prices follow the design's currency (US dollars). */
+   which side. Households, health records, meal plans, grocery orders, staff work and
+   communities are stored on the server (api/lib/greenfed.php). Prices are in naira and set by
+   GreenFed administrators; customers pay by bank transfer and an administrator confirms it.
+   Only the shopping cart and the chosen role are kept on this device. */
 (() => {
   "use strict";
 
@@ -16,8 +18,7 @@
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
     );
   const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
-  const money = (n) =>
-    "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const money = (n) => "₦" + Math.round(Number(n) || 0).toLocaleString("en-NG");
   const initials = (n) =>
     String(n)
       .split(/\s+/)
@@ -38,9 +39,8 @@
     if (h < 24) return h + (h === 1 ? "hr ago" : "hrs ago");
     return Math.round(h / 24) + "d ago";
   };
-  const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
-  const uid = (p) => p + now().toString(36) + rnd(10, 99);
   const k = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + "k" : String(n));
+  const api = (path, body) => RH.call(path, body === undefined ? {} : { method: "POST", body });
 
   // ------------------------------------------------------------ catalogue and meals
   const ALLERGENS = ["Milk", "Egg", "Wheat", "Peanuts", "Fish", "Soy"];
@@ -55,52 +55,10 @@
     ["Grains", "wheat", "#f5f0e6", "#854d0e"],
   ];
   const CAT = Object.fromEntries(CATS.map(([n, i, t, c]) => [n, { i, t, c }]));
-  // Item names follow the design (spinach, tomatoes, oatmeal, almond milk, honey); prices are sample values.
-  const ITEMS = [
-    ["spinach", "Spinach", "Veges", 3, "1 bunch", { pop: 1 }],
-    ["tomatoes", "Tomatoes", "Veges", 4, "1 kg", { pop: 1 }],
-    ["cucumber", "Cucumber", "Veges", 2, "2 pcs"],
-    ["carrots", "Carrots", "Veges", 2.5, "1 kg"],
-    ["okra", "Okra", "Veges", 3, "500 g", { off: 1 }],
-    ["sweetpotato", "Sweet potato", "Veges", 3.5, "1 kg"],
-    ["berries", "Mixed berries", "Fruits", 6, "250 g", { pop: 1 }],
-    ["bananas", "Bananas", "Fruits", 2.5, "1 bunch"],
-    ["apples", "Apples", "Fruits", 4, "6 pcs", { off: 1 }],
-    ["avocado", "Avocado", "Fruits", 3, "2 pcs", { neu: 1 }],
-    ["groundnuts", "Roasted groundnuts", "Snacks", 2.5, "200 g", { al: ["Peanuts"] }],
-    ["hummus", "Hummus", "Snacks", 4.5, "250 g", { neu: 1 }],
-    ["popcorn", "Popcorn kernels", "Snacks", 3, "500 g"],
-    ["oats", "Oatmeal", "Breads", 6, "1 kg", { pop: 1 }],
-    ["wwbread", "Whole-wheat bread", "Breads", 3.5, "1 loaf", { al: ["Wheat"] }],
-    ["granola", "Granola", "Breads", 5, "500 g", { al: ["Wheat"], off: 1 }],
-    ["almondmilk", "Almond milk", "Drinks", 5, "1 L", { pop: 1 }],
-    ["tigernut", "Tiger nut drink", "Drinks", 3, "500 ml", { neu: 1 }],
-    ["honey", "Honey", "Drinks", 8, "500 g", { pop: 1 }],
-    ["yoghurt", "Greek yoghurt", "Drinks", 5, "500 g", { al: ["Milk"] }],
-    ["chicken", "Chicken breast", "Proteins", 9, "1 kg"],
-    ["salmon", "Salmon fillet", "Proteins", 14, "500 g", { al: ["Fish"] }],
-    ["eggs", "Eggs", "Proteins", 5, "12 pcs", { al: ["Egg"] }],
-    ["tofu", "Tofu", "Proteins", 4, "400 g", { al: ["Soy"] }],
-    ["beans", "Brown beans", "Proteins", 3, "1 kg"],
-    ["turkey", "Turkey", "Proteins", 10, "1 kg", { off: 1 }],
-    ["brownrice", "Brown rice", "Grains", 6, "2 kg"],
-    ["quinoa", "Quinoa", "Grains", 8, "500 g", { neu: 1 }],
-    ["yam", "Yam", "Grains", 5, "1 tuber"],
-    ["plantain", "Plantain", "Grains", 3, "4 pcs"],
-    ["feta", "Feta cheese", "Grains", 6, "200 g", { al: ["Milk"] }],
-  ].map(([id, name, cat, price, unit, o = {}]) => ({
-    id,
-    name,
-    cat,
-    price,
-    unit,
-    al: o.al || [],
-    pop: !!o.pop,
-    off: !!o.off,
-    neu: !!o.neu,
-  }));
+  // Grocery items and their naira prices come from the server (set by GreenFed administrators).
+  let ITEMS = [];
   const item = (id) => ITEMS.find((x) => x.id === id);
-  const priceOf = (it) => (it.off ? Math.round(it.price * 0.8 * 100) / 100 : it.price);
+  const priceOf = (it) => it.now;
 
   // Meal library: [meal, dish, allergens, grocery item ids]
   const LIB = [
@@ -164,16 +122,15 @@
       return { meal: m, dish: pick[1], items: pick[3] };
     });
   }
-  const PRICE_PP_WEEK = 37.5; // design: "1 week meal plan for yourself and 3 members costs 150 Dollars"
-  const planPrice = (persons, weeks) => persons * weeks * PRICE_PP_WEEK;
+  const PRICE_PP_WEEK = () => (S.settings && S.settings.plan_price) || 0; // naira, set by administrators
+  const planPrice = (persons, weeks) => persons * weeks * PRICE_PP_WEEK();
+  // Starting points for a new plan. Your nutritionist still tailors every plan to your household.
   const POPULAR = [
     {
       key: "family",
       name: "Family plan",
       meals: ["Breakfast", "Lunch", "Dinner"],
       allergies: [],
-      likes: 2500,
-      comments: 212,
       who: "families sharing one menu",
     },
     {
@@ -181,8 +138,6 @@
       name: "Personal plan",
       meals: ["Breakfast", "Lunch", "Snacks", "Dinner"],
       allergies: [],
-      likes: 4500,
-      comments: 512,
       who: "one person",
     },
     {
@@ -190,8 +145,6 @@
       name: "Kiddies plan",
       meals: ["Breakfast", "Snacks", "Lunch", "Dinner"],
       allergies: ["Peanuts"],
-      likes: 1800,
-      comments: 140,
       who: "school-age children, peanut-free",
     },
     {
@@ -199,8 +152,6 @@
       name: "Aged plan",
       meals: ["Breakfast", "Lunch", "Dinner"],
       allergies: [],
-      likes: 1200,
-      comments: 96,
       who: "older adults: softer, lower-salt meals",
     },
   ];
@@ -208,6 +159,9 @@
   const PLAN_FLOW = ["PAID", "PICKED", "IN_PROGRESS", "DELIVERED"];
   const GROC_FLOW = ["PAID", "GATHERING", "QA", "PACKAGED", "EN_ROUTE", "DELIVERED"];
   const LABEL = {
+    AWAITING_PAYMENT: "Waiting for your transfer",
+    PAYMENT_SENT: "Confirming your payment",
+    CANCELLED: "Cancelled",
     PAID: "Payment confirmed",
     PICKED: "Picked by nutritionist",
     IN_PROGRESS: "Work in progress",
@@ -218,6 +172,9 @@
     EN_ROUTE: "Delivery en route",
   };
   const SHORT = {
+    AWAITING_PAYMENT: "Pay now",
+    PAYMENT_SENT: "Confirming payment",
+    CANCELLED: "Cancelled",
     PAID: "Paid",
     PICKED: "Picked",
     IN_PROGRESS: "In progress",
@@ -235,535 +192,113 @@
   };
   const chip = (s) => `<span class="st st--${s}">${SHORT[s] || s}</span>`;
 
-  // Employee types from the requirements, and which work queue each one sees
+  // Employee types from the requirements, which work queue each one sees, and how they are paid.
+  // Nutritionists are paid per delivered meal plan; suppliers are partners paid per delivery
+  // contract and the rest are salaried, both outside the app, so their meter only counts tasks.
   const EMP = {
-    nutritionist: { name: "Nutritionist", who: "Selina Bryan", queue: "Meal plans" },
-    supply: { name: "Supply manager", who: "Musa Bello", queue: "Grocery orders: gathering" },
-    qa: { name: "Quality assurance", who: "Ifeoma Obi", queue: "Grocery orders: quality check" },
-    delivery: { name: "Packaging & delivery", who: "Jane Smith", queue: "Grocery orders: pack and deliver" },
-    health: { name: "Health specialist", who: "Dr. Kunle Ade", queue: "Community" },
-    supplier: { name: "Supplier", who: "Ekiti Farms Co-op", queue: "Grocery supply requests" },
+    nutritionist: { name: "Nutritionist", queue: "Meal plans", pay: "task" },
+    supply: { name: "Supply manager", queue: "Grocery orders: gathering", pay: "salary" },
+    qa: { name: "Quality assurance", queue: "Grocery orders: quality check", pay: "salary" },
+    delivery: { name: "Packaging & delivery", queue: "Grocery orders: pack and deliver", pay: "salary" },
+    health: { name: "Health specialist", queue: "Community", pay: "salary" },
+    supplier: { name: "Supplier", queue: "Grocery supply requests", pay: "contract" },
   };
-  const RATE = 5; // sample earnings per completed task, for the work meter
+  const RATE = () => (S.settings && S.settings.nutritionist_rate) || 0;
 
-  // ------------------------------------------------------------ state
-  function seed() {
-    const t = now();
-    const members = [
-      { id: "m0", name: "Alex Bush", rel: "You", age: 34, sex: "Female", allergies: [], conditions: [] },
-      {
-        id: "m1",
-        name: "Jude Bush",
-        rel: "Husband",
-        age: 36,
-        sex: "Male",
-        allergies: [],
-        conditions: ["Pollen allergy"],
-      },
-      { id: "m2", name: "Ella Bush", rel: "Daughter", age: 8, sex: "Female", allergies: ["Peanuts"], conditions: [] },
-      {
-        id: "m3",
-        name: "Kemi Bush",
-        rel: "Mother",
-        age: 64,
-        sex: "Female",
-        allergies: ["Milk"],
-        conditions: ["High blood pressure"],
-      },
-    ];
-    const plan = (o) => ({ kind: "plan", review: null, ...o });
-    const days = (meals, al) => DAYS.map((_, i) => genDay(i, meals, al));
-    const orders = [
-      plan({
-        id: "o1",
-        name: "My fav plan",
-        members: ["m0", "m1", "m2", "m3"],
-        weeks: 1,
-        meals: ["Breakfast", "Lunch", "Snacks", "Dinner"],
-        allergies: ["Peanuts", "Milk"],
-        info: "Low salt for Mum.",
-        price: 150,
-        status: "DELIVERED",
-        staff: { nutritionist: "Selina Bryan" },
-        created: t - 9 * DAY,
-        fav: true,
-        history: [
-          ["PAID", t - 9 * DAY],
-          ["PICKED", t - 9 * DAY + 3 * H],
-          ["IN_PROGRESS", t - 9 * DAY + 5 * H],
-          ["DELIVERED", t - 8 * DAY],
-        ],
-        days: days(["Breakfast", "Lunch", "Snacks", "Dinner"], ["Peanuts", "Milk"]),
-        review: { stars: 5, note: "Clear and easy to follow." },
-      }),
-      plan({
-        id: "o2",
-        name: "Plan 001",
-        members: ["m0"],
-        weeks: 1,
-        meals: ["Breakfast", "Lunch", "Dinner"],
-        allergies: [],
-        info: "",
-        price: 37.5,
-        status: "IN_PROGRESS",
-        staff: { nutritionist: "Selina Bryan" },
-        created: t - 20 * H,
-        history: [
-          ["PAID", t - 20 * H],
-          ["PICKED", t - 18 * H],
-          ["IN_PROGRESS", t - 16 * H],
-        ],
-      }),
-      {
-        kind: "grocery",
-        id: "o3",
-        items: [
-          ["oats", 1],
-          ["almondmilk", 2],
-          ["berries", 2],
-          ["spinach", 3],
-          ["tomatoes", 2],
-          ["chicken", 1],
-        ],
-        total: 0,
-        address: "14 Admiralty Way, Lekki, Lagos",
-        slot: "Saturday, 10:00–12:00",
-        weekly: true,
-        status: "EN_ROUTE",
-        staff: { supply: "Musa Bello", qa: "Ifeoma Obi", delivery: "Jane Smith" },
-        created: t - 5 * H,
-        reviews: {},
-        eta: "1 hr",
-        km: 7,
-        history: [
-          ["PAID", t - 5 * H],
-          ["GATHERING", t - 4.5 * H],
-          ["QA", t - 3 * H],
-          ["PACKAGED", t - 2 * H],
-          ["EN_ROUTE", t - 0.5 * H],
-        ],
-      },
-      {
-        kind: "grocery",
-        id: "o4",
-        items: [
-          ["honey", 1],
-          ["apples", 2],
-          ["brownrice", 1],
-        ],
-        total: 0,
-        address: "14 Admiralty Way, Lekki, Lagos",
-        slot: "Saturday, 10:00–12:00",
-        weekly: false,
-        status: "DELIVERED",
-        staff: { supply: "Musa Bello", qa: "Ifeoma Obi", delivery: "Jane Smith" },
-        created: t - 8 * DAY,
-        reviews: { DELIVERED: 5 },
-        history: [
-          ["PAID", t - 8 * DAY],
-          ["GATHERING", t - 8 * DAY + H],
-          ["QA", t - 8 * DAY + 2 * H],
-          ["PACKAGED", t - 8 * DAY + 3 * H],
-          ["EN_ROUTE", t - 8 * DAY + 4 * H],
-          ["DELIVERED", t - 8 * DAY + 5 * H],
-        ],
-      },
-      // Requests from other customers, so the employee side has work in its queues
-      plan({
-        id: "o5",
-        name: "Family plan",
-        owner: "Tunde Ade",
-        members: [],
-        persons: 3,
-        weeks: 2,
-        meals: ["Breakfast", "Lunch", "Dinner"],
-        allergies: ["Egg"],
-        info: "Diabetic-friendly for Dad.",
-        price: 225,
-        status: "PAID",
-        staff: {},
-        created: t - 2 * H,
-        history: [["PAID", t - 2 * H]],
-      }),
-      {
-        kind: "grocery",
-        id: "o6",
-        owner: "Ngozi Eze",
-        items: [
-          ["tomatoes", 3],
-          ["okra", 2],
-          ["turkey", 1],
-          ["yam", 1],
-        ],
-        total: 0,
-        address: "22 Allen Avenue, Ikeja",
-        slot: "Friday, 14:00–16:00",
-        weekly: true,
-        status: "PAID",
-        staff: {},
-        created: t - 1 * H,
-        reviews: {},
-        history: [["PAID", t - 1 * H]],
-      },
-    ];
-    orders
-      .filter((o) => o.kind === "grocery")
-      .forEach((o) => (o.total = o.items.reduce((a, [id, q]) => a + priceOf(item(id)) * q, 0)));
-    return {
-      v: 1,
-      session: null,
-      user: {
-        name: "Alex Bush",
-        email: "alex.bush@example.com",
-        phone: "+234 810 541 2715",
-        address: "14 Admiralty Way, Lekki, Lagos",
-        occupation: "Pharmacist",
-        marital: "Married",
-        height: 168,
-        weight: 70,
-        goal: "Maintain a healthy weight",
-        goalNote: "Eat more vegetables and less sugar.",
-        status: "ACTIVE",
-      },
-      members,
-      records: [
-        {
-          id: "h1",
-          type: "Allergy",
-          name: "Peanuts",
-          member: "m2",
-          date: t - 400 * DAY,
-          sev: "Severe",
-          by: "Healthy Family Centre",
-        },
-        {
-          id: "h2",
-          type: "Allergy",
-          name: "Pollen",
-          member: "m1",
-          date: t - 250 * DAY,
-          sev: "Mild",
-          by: "Healthy Family Centre",
-        },
-        {
-          id: "h3",
-          type: "Allergy",
-          name: "Milk (lactose)",
-          member: "m3",
-          date: t - 600 * DAY,
-          sev: "Moderate",
-          by: "Healthy Family Centre",
-        },
-        {
-          id: "h4",
-          type: "Diagnosis",
-          name: "High blood pressure",
-          member: "m3",
-          date: t - 300 * DAY,
-          sev: "Moderate",
-          by: "Healthy Family Centre",
-        },
-        {
-          id: "h5",
-          type: "Family history",
-          name: "Diabetes",
-          member: "m3",
-          date: t - 900 * DAY,
-          sev: "Mild",
-          by: "Self-reported",
-        },
-        {
-          id: "h6",
-          type: "Medication",
-          name: "Amlodipine 5 mg",
-          member: "m3",
-          date: t - 120 * DAY,
-          sev: "Mild",
-          by: "Healthy Family Centre",
-        },
-      ],
-      orders,
-      cart: {},
-      favs: ["almondmilk", "honey"],
-      cards: [{ last4: "6587", name: "Alex Bush", exp: "06/28" }],
-      communities: [
-        {
-          id: "c1",
-          name: "Allergies",
-          cat: "Allergies",
-          desc: "Living well with food allergies: swaps, labels and recipes.",
-          members: 214,
-          pub: true,
-          joined: true,
-          perms: "anyone",
-          last: "Ella's school now has a nut-free table!",
-          lastAt: t - 0.6 * H,
-          by: "GreenFed",
-        },
-        {
-          id: "c2",
-          name: "Balanced diet",
-          cat: "Nutrition",
-          desc: "Simple, balanced meals for busy families.",
-          members: 512,
-          pub: true,
-          joined: true,
-          perms: "anyone",
-          last: "What's your go-to high-fibre breakfast?",
-          lastAt: t - 3 * H,
-          by: "GreenFed",
-        },
-        {
-          id: "c3",
-          name: "Weight",
-          cat: "Health issues",
-          desc: "Support for healthy weight goals, without crash diets.",
-          members: 388,
-          pub: true,
-          joined: false,
-          perms: "anyone",
-          last: "Week 3 check-in thread",
-          lastAt: t - 5 * H,
-          by: "Dr. Kunle Ade",
-        },
-        {
-          id: "c4",
-          name: "Diet and diabetes",
-          cat: "Health issues",
-          desc: "Eating well with diabetes, guided by our health specialists.",
-          members: 241,
-          pub: true,
-          joined: false,
-          perms: "admins",
-          last: "Low-GI swaps for Nigerian staples",
-          lastAt: t - DAY,
-          by: "Dr. Kunle Ade",
-        },
-        {
-          id: "c5",
-          name: "Food & craft",
-          cat: "Food & craft",
-          desc: "Cook, preserve and plate: share what you make.",
-          members: 167,
-          pub: true,
-          joined: false,
-          perms: "anyone",
-          last: "Pickled cucumbers, my way",
-          lastAt: t - 2 * DAY,
-          by: "GreenFed",
-        },
-        {
-          id: "c6",
-          name: "Recovery kitchen",
-          cat: "Rehabilitation",
-          desc: "Private support for people in addiction recovery and their families.",
-          members: 46,
-          pub: false,
-          joined: false,
-          perms: "admins",
-          last: "Members only",
-          lastAt: t - 3 * DAY,
-          by: "Dr. Kunle Ade",
-        },
-      ],
-      posts: [
-        {
-          id: "p1",
-          c: "c1",
-          by: "Samdas Fobs",
-          at: t - 0.6 * H,
-          title: "Understanding consequences of eating above your limits.",
-          body: "Allergic reactions can be delayed. Keep a simple food diary for two weeks and share it with your nutritionist before changing your plan.",
-          likes: 3500,
-          liked: false,
-          replies: [
-            {
-              id: "r1",
-              by: "Dr. Kunle Ade",
-              role: "Health specialist",
-              at: t - 0.4 * H,
-              body: "Good advice. Note the time, the food and the symptom, every time.",
-              replies: [
-                {
-                  id: "r2",
-                  by: "Alex Bush",
-                  at: t - 0.2 * H,
-                  body: "This helped us spot Ella's reaction to a snack bar.",
-                  replies: [],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: "p2",
-          c: "c1",
-          by: "Its voice",
-          at: t - 5 * H,
-          title: "Reading labels in the supermarket",
-          body: "Look for 'may contain' warnings as well as the ingredient list. Here are the ones I check every time.",
-          likes: 820,
-          liked: true,
-          replies: [],
-        },
-        {
-          id: "p3",
-          c: "c2",
-          by: "Harvacent",
-          at: t - 3 * H,
-          title: "What's your go-to high-fibre breakfast?",
-          body: "Mine is oats with berries. Looking for new ideas for the kids.",
-          likes: 410,
-          liked: false,
-          replies: [{ id: "r3", by: "Fobs", at: t - 2 * H, body: "Akara and pap on weekends!", replies: [] }],
-        },
-      ],
-      notes: [
-        {
-          id: "n1",
-          cat: "Grocery",
-          t: "Your grocery is on the move",
-          s: "Hi Alex Bush, your grocery is on the move for delivery, check out your tracking.",
-          at: t - 0.5 * H,
-          read: false,
-          link: "#/orders/o3",
-        },
-        {
-          id: "n2",
-          cat: "Meal Plan",
-          t: "Your meal is being prepared by Selina Bryan",
-          s: "Hi Alex Bush, your PLAN 001 meal plan is in progress and will reach you within 48 hours.",
-          at: t - 2 * H,
-          read: false,
-          link: "#/orders/o2",
-        },
-        {
-          id: "n3",
-          cat: "Meal Plan",
-          t: "Your payment for meal plan confirmed",
-          s: "Hi Alex Bush, your payment for PLAN 001 has been confirmed.",
-          at: t - 5 * H,
-          read: true,
-          link: "#/orders/o2",
-        },
-        {
-          id: "n4",
-          cat: "Profile",
-          t: "Upload a profile photo",
-          s: "Help your community recognise you.",
-          at: t - 10 * H,
-          read: true,
-          link: "#/profile",
-        },
-        {
-          id: "n5",
-          cat: "Meal Plan",
-          t: "Check out our new meal plan",
-          s: "Hi Alex Bush, check out our new Kiddies plan, peanut-free by default.",
-          at: t - 15 * H,
-          read: true,
-          link: "#/plans/popular/kiddies",
-        },
-        {
-          id: "n6",
-          cat: "Grocery",
-          t: "Check out our grocery store",
-          s: "Hello Alex Bush, we got new items in our grocery store, check it out.",
-          at: t - 18 * H,
-          read: true,
-          link: "#/grocery?tab=new",
-        },
-      ],
-      prefs: { email: true, push: true, promos: true, community: true, dark: false },
-      emp: { type: "nutritionist", tasks: 12, paid: [], bank: null, complaints: [] },
-      users: [
-        { name: "Alex Bush", email: "alex.bush@example.com", status: "ACTIVE" },
-        { name: "Tunde Ade", email: "tunde@example.com", status: "ACTIVE" },
-        { name: "Ngozi Eze", email: "ngozi@example.com", status: "ACTIVE" },
-        { name: "Samdas Fobs", email: "samdas@example.com", status: "WARNING" },
-      ],
-      conflicts: [],
-      leader: null,
-      draft: null,
-    };
-  }
-  // Saved per account on this device until GreenFed ordering is connected to the server.
-  const KEY = "greenfed-app-v1";
-  let STORE = KEY;
-  let S = seed();
+  // ------------------------------------------------------------ state (a cache of the server)
+  const blank = () => ({
+    session: null,
+    settings: { plan_price: 0, nutritionist_rate: 0, bank: {}, slots: [] },
+    user: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      occupation: "",
+      marital: "",
+      height: 0,
+      weight: 0,
+      goal: "",
+      goalNote: "",
+      setupDone: true,
+    },
+    members: [{ id: "", name: "", rel: "You", age: 0, sex: "", allergies: [], conditions: [] }],
+    records: [],
+    orders: [],
+    cart: {},
+    favs: [],
+    communities: [],
+    posts: [],
+    notes: [],
+    prefs: { email: true, push: true, promos: true, community: true, dark: false },
+    emp: { type: "", name: "", tasks: 0, allTasks: 0, paid: [], bank: null, complaints: [] },
+    staff: [],
+    complaints: [],
+    conflicts: [],
+    leaders: [],
+    leader: null,
+    draft: null,
+  });
+  let S = blank();
   let ACCOUNT = null; // the signed-in Rehohub account (from the server)
   let MYROLES = []; // GreenFed roles the server has approved for this account
-  let FRESH = false;
   const ROLEMAP = { customer: "user", employee: "employee", admin: "admin" };
-  const EMPMAP = {
-    nutritionist: "nutritionist",
-    supply_manager: "supply",
-    quality_assurance: "qa",
-    packaging_delivery: "delivery",
-    health_specialist: "health",
-    supplier: "supplier",
-  };
-  function loadFor(account) {
-    STORE = KEY + ":" + account.id;
-    let saved = null;
+  // On this device: only the cart and the side you last used.
+  const local = (key, val) => {
+    const kk = "greenfed-" + key + ":" + (ACCOUNT ? ACCOUNT.id : "");
     try {
-      saved = JSON.parse(localStorage.getItem(STORE));
+      if (val === undefined) return JSON.parse(localStorage.getItem(kk));
+      localStorage.setItem(kk, JSON.stringify(val));
     } catch (e) {}
-    if (saved && saved.v === 1) {
-      S = saved;
-      return;
-    }
-    // A new account starts with its own empty household and history.
-    FRESH = true;
-    S = seed();
-    S.members = [{ ...S.members[0], name: account.full_name, allergies: [], conditions: [] }];
-    S.records = [];
-    S.orders = S.orders.filter((o) => o.owner);
-    S.favs = [];
-    S.cards = [];
-    S.emp = { type: "nutritionist", tasks: 0, paid: [], bank: null, complaints: [] };
-    S.users = [];
-    S.notes = [
-      {
-        id: uid("n"),
-        cat: "Profile",
-        t: "Welcome to GreenFed",
-        s: "Add your household and allergies so your nutritionist can plan around them.",
-        at: now(),
-        read: false,
-        link: "#/family",
-      },
-    ];
+    return null;
+  };
+  const save = () => local("cart", S.cart);
+  async function sync() {
+    lastSync = Date.now();
+    const r = await api("greenfed/state?role=" + role());
+    S.settings = r.settings;
+    ITEMS = r.items || [];
+    Object.assign(S.user, r.user || {}, { name: ACCOUNT.full_name, email: ACCOUNT.email, phone: ACCOUNT.phone || "" });
+    S.prefs = { ...S.prefs, ...(r.prefs || {}) };
+    S.notes = r.notes || [];
+    S.communities = r.communities || [];
+    S.posts = r.posts || [];
+    S.orders = r.orders || [];
+    S.leader = r.leader;
+    if (r.members) S.members = r.members;
+    S.records = r.records || [];
+    S.favs = r.favs || [];
+    S.conflicts = r.conflicts || [];
+    if (r.emp) S.emp = r.emp;
+    S.staff = r.staff || [];
+    S.complaints = r.complaints || [];
+    S.leaders = r.leaders || [];
+    // Drop cart lines for items that are no longer sold.
+    Object.keys(S.cart).forEach((id) => item(id) || delete S.cart[id]);
   }
-  const save = () => {
-    if (!ACCOUNT) return;
+  /** Runs a server action, then reloads the data and redraws. */
+  async function act(promise, okMsg, after) {
     try {
-      localStorage.setItem(STORE, JSON.stringify(S));
-    } catch (e) {}
-  };
+      const r = await promise;
+      await sync();
+      if (after) after(r);
+      else render();
+      toast((r && r.message) || okMsg || "Saved");
+      return r;
+    } catch (e) {
+      toast(e.message);
+      return null;
+    }
+  }
   const order = (id) => S.orders.find((o) => o.id === id);
   const memberName = (id) => (S.members.find((m) => m.id === id) || {}).name || "";
   const myOrders = () => S.orders.filter((o) => !o.owner);
   const persons = (o) => o.persons || o.members.length || 1;
   const cartCount = () => Object.values(S.cart).reduce((a, b) => a + b, 0);
-  const cartTotal = () => Object.entries(S.cart).reduce((a, [id, q]) => a + priceOf(item(id)) * q, 0);
-  function note(cat, t, s, link) {
-    S.notes.unshift({ id: uid("n"), cat, t, s, at: now(), read: false, link });
-  }
-  function setStatus(o, st, staffKey, who) {
-    o.status = st;
-    o.history.push([st, now()]);
-    if (staffKey) o.staff[staffKey] = who;
-    if (!o.owner) {
-      const nm = o.kind === "plan" ? `${o.name.toUpperCase()} meal plan` : "grocery order";
-      note(
-        o.kind === "plan" ? "Meal Plan" : "Grocery",
-        `${LABEL[st]}`,
-        `Hi ${S.user.name}, your ${nm}: ${LABEL[st].toLowerCase()}.`,
-        "#/orders/" + o.id,
-      );
-    }
-  }
+  const cartTotal = () => Object.entries(S.cart).reduce((a, [id, q]) => a + (item(id) ? priceOf(item(id)) * q : 0), 0);
+  const lineName = (l) => (item(l[0]) || {}).name || l[3] || l[0];
+  const isLive = (o) => !["DELIVERED", "CANCELLED"].includes(o.status);
+  const paidOrder = (o) => !["AWAITING_PAYMENT", "PAYMENT_SENT", "CANCELLED"].includes(o.status);
 
   // ------------------------------------------------------------ UI primitives
   const view = () => $("#app");
@@ -814,28 +349,39 @@
   function timeline(o) {
     const flow = o.kind === "plan" ? PLAN_FLOW : GROC_FLOW;
     const idx = flow.indexOf(o.status);
+    if (o.status === "CANCELLED") return `<p class="mute">This order was cancelled.</p>`;
+    const waiting = o.status === "AWAITING_PAYMENT" || o.status === "PAYMENT_SENT";
+    const payName = o.status === "AWAITING_PAYMENT" ? "Waiting for your bank transfer" : "Confirming your payment";
     const names =
       o.kind === "plan"
         ? {
-            PAID: "Payment confirmed",
+            PAID: waiting ? payName : "Payment confirmed",
             PICKED: `Picked by ${o.staff.nutritionist || "a nutritionist"}`,
             IN_PROGRESS: "Work in progress",
             DELIVERED: "Plan delivered to your email and app",
           }
         : {
-            PAID: "Payment confirmed",
+            PAID: waiting ? payName : "Payment confirmed",
             GATHERING: `Order gathering${o.staff.supply ? " · " + o.staff.supply : ""}`,
             QA: `Quality assurance${o.staff.qa ? " · " + o.staff.qa : ""}`,
             PACKAGED: "Packaged",
-            EN_ROUTE: `Delivery en route (30 min)${o.staff.delivery ? " · " + o.staff.delivery : ""}`,
+            EN_ROUTE: `Delivery en route${o.staff.delivery ? " · " + o.staff.delivery : ""}`,
             DELIVERED: "Delivered",
           };
     return `<ol class="tl">${flow
       .map((st, i) => {
-        const h = o.history.find((x) => x[0] === st);
-        const cls = i < idx || (i === idx && st === "DELIVERED") ? "done" : i === idx ? "now" : "";
+        const h = waiting && st === "PAID" ? o.history[o.history.length - 1] : o.history.find((x) => x[0] === st);
+        const cls = waiting
+          ? st === "PAID"
+            ? "now"
+            : ""
+          : i < idx || (i === idx && st === "DELIVERED")
+            ? "done"
+            : i === idx
+              ? "now"
+              : "";
         const rev =
-          o.kind === "grocery" && h && st !== "PAID"
+          o.kind === "grocery" && h && st !== "PAID" && !waiting
             ? `<span class="stars" style="margin-left:8px">${[1, 2, 3, 4, 5].map((v) => `<button class="link" style="padding:0" data-act="stage-rate" data-id="${o.id}" data-st="${st}" data-v="${v}" aria-label="Rate ${LABEL[st]} ${v} out of 5"><svg class="i ${v <= (o.reviews[st] || 0) ? "" : "off"}" aria-hidden="true"><use href="#i-star"/></svg></button>`).join("")}</span>`
             : "";
         return `<li class="${cls}"><b>${esc(names[st])}</b>${h ? `<small>${fmtDate(h[1])} · ${fmtTime(h[1])}</small>${rev}` : ""}</li>`;
@@ -876,12 +422,12 @@
   A.setup = () =>
     authShell(`<p class="auth__step">One last step</p><h1>Tell us about you</h1><p>Your nutritionist uses this to plan your meals. You can change it any time.</p>
     <form class="stack" data-form="setup" novalidate>
-      <div class="grid2"><label class="field"><span>Age</span><input class="inp" name="age" type="number" min="1" max="120" value="34"></label><label class="field"><span>Sex</span><select class="inp" name="sex"><option>Female</option><option>Male</option></select></label></div>
-      <div class="grid2"><label class="field"><span>Marital status</span><select class="inp" name="marital"><option>Single</option><option selected>Married</option><option>Prefer not to say</option></select></label><label class="field"><span>Number of persons at home</span><input class="inp" name="persons" type="number" min="1" max="20" value="4"></label></div>
+      <div class="grid2"><label class="field"><span>Age</span><input class="inp" name="age" type="number" min="1" max="120"></label><label class="field"><span>Sex</span><select class="inp" name="sex"><option>Female</option><option>Male</option></select></label></div>
+      <label class="field"><span>Marital status</span><select class="inp" name="marital"><option>Single</option><option>Married</option><option>Prefer not to say</option></select></label>
       <fieldset class="field" style="border:0;padding:0;margin:0"><span>Allergies</span><div class="checks">${ALLERGENS.map((a) => `<label><input type="checkbox" name="al" value="${a}"><span>${a}</span></label>`).join("")}</div></fieldset>
       <label class="field"><span>Health status</span><input class="inp" name="health" placeholder="e.g. none, diabetes, high blood pressure"></label>
-      <label class="field"><span>Phone number</span><input class="inp" name="phone" type="tel" value="${esc(S.user.phone)}"></label>
-      <button class="btn btn--block">Save and continue</button></form>`);
+      <p class="mute" style="font-size:13px">Add your family after this, from Profile → Family members.</p>
+      <p class="err" data-err hidden></p><button class="btn btn--block">Save and continue</button></form>`);
 
   // ------------------------------------------------------------ app shell
   const NAV = {
@@ -899,12 +445,16 @@
       ["#/work", "clipboard", "My work"],
       ["#/work/earnings", "wallet", "Work meter"],
       ["#/work/complaints", "flag", "Complaints"],
+      ["#/notifications", "bell", "Notifications"],
       ["#/profile", "user", "Profile"],
     ],
     admin: [
       ["#/admin", "chart", "Overview"],
+      ["#/admin/settings", "wallet", "Prices and bank"],
       ["#/admin/users", "users", "Users"],
       ["#/admin/conflicts", "flag", "Conflicts"],
+      ["#/community", "chat", "Community"],
+      ["#/notifications", "bell", "Notifications"],
       ["#/profile", "user", "Profile"],
     ],
   };
@@ -925,8 +475,9 @@
     ],
     admin: [
       ["#/admin", "chart", "Overview"],
-      ["#/admin/users", "users", "Users"],
+      ["#/admin/settings", "wallet", "Prices"],
       ["#/admin/conflicts", "flag", "Conflicts"],
+      ["#/notifications", "bell", "Alerts"],
       ["#/profile", "user", "Profile"],
     ],
   };
@@ -939,7 +490,9 @@
     const homes = ["#/home", "#/work", "#/admin"];
     const cur = (h) => (path === h || (!homes.includes(h) && path.startsWith(h + "/")) ? ' aria-current="page"' : "");
     const who = ACCOUNT ? ACCOUNT.full_name : S.user.name;
-    const nav = NAV[r]
+    const navList = NAV[r].slice();
+    if (r === "employee" && S.emp.type === "health") navList.splice(1, 0, ["#/community", "users", "Community"]);
+    const nav = navList
       .map(
         ([h, i, t]) =>
           `<li><a href="${h}"${cur(h)}>${ic(i)}<span>${t}</span>${h === "#/notifications" && unread ? `<span class="n">${unread}</span>` : ""}</a></li>`,
@@ -964,15 +517,14 @@
               : ""
           }
           <a class="link" href="${esc(RH.url("account/index.html"))}" style="font-size:13px">My Rehohub account</a>
-          <div class="me"><span class="ava">${initials(who)}</span><div><b>${esc(who)}</b><small>${r === "employee" ? EMP[S.emp.type].name : ROLE[r]}</small></div></div>
+          <div class="me"><span class="ava">${initials(who)}</span><div><b>${esc(who)}</b><small>${r === "employee" ? esc(S.emp.name) : ROLE[r]}</small></div></div>
         </div>
       </aside>
       <main class="main" id="main">
         <div class="gf-head"><a href="#/profile" aria-label="Profile"><span class="ava">${initials(who)}</span></a><h1>${v.title}</h1>${cartBtn || "<span></span>"}</div>
         <div class="top top--gf">${v.back ? `<a class="back" href="${v.back}" aria-label="Back">${ic("chev-left")}</a>` : ""}<h1>${v.title}</h1>${cartBtn}
-          ${r === "user" ? `<a class="ibtn" href="#/notifications" aria-label="Notifications${unread ? ", " + unread + " unread" : ""}">${ic("bell")}${unread ? `<span class="dot">${unread}</span>` : ""}</a>` : ""}</div>
+          ${r ? `<a class="ibtn" href="#/notifications" aria-label="Notifications${unread ? ", " + unread + " unread" : ""}">${ic("bell")}${unread ? `<span class="dot">${unread}</span>` : ""}</a>` : ""}</div>
         ${v.back ? `<div class="gf-head" style="justify-content:flex-start"><a class="back" href="${v.back}" aria-label="Back">${ic("chev-left")}</a></div>` : ""}
-        <p class="preview-note">Preview: meal plans, orders and records are saved on this device only, and no payment is taken, until GreenFed ordering goes live.</p>
         ${v.html}
       </main>
       <nav class="tabs" style="--n:${TABS[r].length}" aria-label="Tabs">${tabs}</nav></div>`;
@@ -984,12 +536,12 @@
     const delivered = myOrders().filter((o) => o.kind === "plan" && o.status === "DELIVERED" && o.days);
     const plan = delivered[0];
     const di = (new Date().getDay() + 6) % 7;
-    const active = myOrders().filter((o) => o.status !== "DELIVERED");
+    const active = myOrders().filter(isLive);
     const recs = S.records;
     return {
       title: "Home",
       html: `<div class="cols"><div class="stack">
-      <section class="welcome"><small>Welcome,</small><h2>${esc(S.user.name.split(" ")[0])}</h2><p>${S.members.length} ${S.members.length === 1 ? "person" : "people"} in your household · ${recs.filter((r) => r.type === "Allergy").length} allergies on record. Your nutritionist plans around them.</p></section>
+      <section class="welcome"><small>Welcome,</small><h2>${esc(S.user.name.split(" ")[0])}</h2><p>${S.members.length} ${S.members.length === 1 ? "person" : "people"} in your household · ${S.members.reduce((a, m) => a + m.allergies.length, 0)} allergies on record. Your nutritionist plans around them.</p></section>
       ${
         plan
           ? `<section class="card stack"><div class="row row--sb wrap"><h2 class="h" style="margin:0">Today's meals · ${DAYS[di]}</h2><a class="link" href="#/plans/${plan.id}?d=${di}">Full plan</a></div>
@@ -1002,27 +554,31 @@
     <div class="stack">
       <section class="card stack"><div class="row row--sb"><h2 class="h" style="margin:0">My health record</h2><a class="link" href="#/health">Reports</a></div>
         <div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><b>${recs.length}</b><small>Total records</small></div><div><b>${recs.filter((r) => r.type === "Allergy").length}</b><small>Allergies</small></div></div>
-        <div class="stack">${S.members.map((m) => `<div class="member"><span class="ava ${m.rel === "You" ? "" : "ava--soft"}">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)} · ${m.age} yrs${m.allergies.length ? " · allergic to " + esc(m.allergies.join(", ").toLowerCase()) : ""}</small></div></div>`).join("")}</div>
+        <div class="stack">${S.members.map((m) => `<div class="member"><span class="ava ${m.rel === "You" ? "" : "ava--soft"}">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)}${m.age ? " · " + m.age + " yrs" : ""}${m.allergies.length ? " · allergic to " + esc(m.allergies.join(", ").toLowerCase()) : ""}</small></div></div>`).join("")}</div>
         <a class="btn btn--line btn--sm" href="#/family">${ic("plus")}Add family member</a></section>
       <section class="card stack"><div class="row row--sb"><h2 class="h" style="margin:0">Your communities</h2><a class="link" href="#/community">See all</a></div>
-        ${S.communities
-          .filter((c) => c.joined)
-          .map(
-            (c) =>
-              `<a class="member" href="#/community/${c.id}"><span class="ava ava--soft">${ic("users")}</span><div><b>${esc(c.name)}</b><small>${esc(c.last)}</small></div></a>`,
-          )
-          .join("")}</section>
+        ${
+          S.communities
+            .filter((c) => c.joined)
+            .map(
+              (c) =>
+                `<a class="member" href="#/community/${c.id}"><span class="ava ava--soft">${ic("users")}</span><div><b>${esc(c.name)}</b><small>${esc(c.last)}</small></div></a>`,
+            )
+            .join("") || `<p class="mute">You haven't joined a community yet.</p>`
+        }</section>
     </div></div>`,
     };
   };
   function orderRow(o) {
     const title =
-      o.kind === "plan" ? `${o.name} · meal plan` : `Grocery · ${o.items.reduce((a, [, q]) => a + q, 0)} items`;
+      o.kind === "plan"
+        ? `${o.name} · meal plan`
+        : `Grocery #${o.id} · ${o.items.reduce((a, [, q]) => a + q, 0)} items`;
     const sub =
       o.kind === "plan"
         ? `${persons(o)} ${persons(o) === 1 ? "person" : "persons"} · ${o.weeks} week${o.weeks > 1 ? "s" : ""} · ${money(o.price)}`
         : `${o.slot} · ${money(o.total)}`;
-    return `<a class="plan" href="#/orders/${o.id}"><span class="plan__ico">${ic(o.kind === "plan" ? "plan" : "bag")}</span><b>${esc(title)}</b><div class="plan__side">${chip(o.status)}</div><small>${esc(sub)}</small></a>`;
+    return `<a class="plan" href="#/${o.status === "AWAITING_PAYMENT" ? "pay?id=" : "orders/"}${o.id}"><span class="plan__ico">${ic(o.kind === "plan" ? "plan" : "bag")}</span><b>${esc(title)}</b><div class="plan__side">${chip(o.status)}</div><small>${esc(sub)}</small></a>`;
   }
 
   V.plans = () => {
@@ -1038,16 +594,16 @@
           .map(
             (
               o,
-            ) => `<div class="plan"><span class="plan__ico">${ic(o.fav ? "check-sq" : "plan")}</span><a href="#/${o.status === "DELIVERED" ? "plans" : "orders"}/${o.id}"><b>${esc(o.name)}</b></a>
+            ) => `<div class="plan"><span class="plan__ico">${ic(o.fav ? "check-sq" : "plan")}</span><a href="#/${o.status === "DELIVERED" ? "plans/" : o.status === "AWAITING_PAYMENT" ? "pay?id=" : "orders/"}${o.id}"><b>${esc(o.name)}</b></a>
           <div class="plan__side"><span>${fmtTime(o.created)}</span><div class="plan__acts"><button data-act="fav-plan" data-id="${o.id}" aria-pressed="${!!o.fav}" aria-label="Favourite">${ic("heart")}</button><button data-act="download" data-id="${o.id}" aria-label="Download" ${o.days ? "" : "disabled"}>${ic("download")}</button><button data-act="share" data-what="${esc(o.name)} meal plan" aria-label="Share">${ic("share")}</button></div></div>
           <small>${fmtDate(o.created)} · <span class="tag">${persons(o)} ${persons(o) === 1 ? "Person" : "Persons"}</span> ${o.status === "DELIVERED" ? "" : chip(o.status)}</small></div>`,
           )
           .join("") || `<div class="card empty"><b>No plans yet</b>Request your first meal plan.</div>`
       }</div>
-      <h2 class="h" style="margin:8px 0 0;color:var(--mute)">POPULAR PLANS</h2>
-      <div class="popular">${POPULAR.map((p) => `<a class="pop" href="#/plans/popular/${p.key}"><b>${p.name}</b><em>${p.meals.length} Meals</em><small>${p.allergies.length ? "No " + p.allergies.join(", ").toLowerCase() : "No allergies"}</small><span class="social-row"><span>${ic("heart")}${k(p.likes)}</span><span>${ic("chat")}${p.comments}</span></span></a>`).join("")}</div>
+      <h2 class="h" style="margin:8px 0 0;color:var(--mute)">START FROM A PLAN</h2>
+      <div class="popular">${POPULAR.map((p) => `<a class="pop" href="#/plans/popular/${p.key}"><b>${p.name}</b><em>${p.meals.length} Meals</em><small>${p.allergies.length ? "No " + p.allergies.join(", ").toLowerCase() : "No allergies"}</small></a>`).join("")}</div>
       <a class="btn btn--block" href="#/plans/new">Get new plan</a></div>
-    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">How it works</h2><ol class="tl"><li class="done"><b>Tell us who it's for</b><small>Members, allergies and meals</small></li><li class="done"><b>Pay</b><small>${money(PRICE_PP_WEEK)} per person per week</small></li><li class="now"><b>A nutritionist picks it up</b><small>You'll see their name</small></li><li><b>Your plan arrives in under 48 hours</b><small>By email and in the app</small></li></ol></section></aside></div>`,
+    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">How it works</h2><ol class="tl"><li class="done"><b>Tell us who it's for</b><small>Members, allergies and meals</small></li><li class="done"><b>Pay by bank transfer</b><small>${money(PRICE_PP_WEEK())} per person per week</small></li><li class="now"><b>A nutritionist picks it up</b><small>You'll see their name</small></li><li><b>Your plan arrives in under 48 hours</b><small>By email and in the app</small></li></ol></section></aside></div>`,
     };
   };
   V.popular = (q, key) => {
@@ -1057,7 +613,7 @@
     return {
       title: p.name,
       back: "#/plans",
-      html: `<div class="cols"><section class="card stack"><div class="sumbar"><span>${p.meals.length} MEALS</span><span>${p.allergies.length ? "NO " + p.allergies.join(", ").toUpperCase() : "NO ALLERGIES"}</span><span>${k(p.likes)} LIKES</span></div>
+      html: `<div class="cols"><section class="card stack"><div class="sumbar"><span>${p.meals.length} MEALS</span><span>${p.allergies.length ? "NO " + p.allergies.join(", ").toUpperCase() : "NO ALLERGIES"}</span></div>
       <p class="mute">Built for ${esc(p.who)}. Here's a sample day; your own plan is tailored to your household.</p>
       ${day.map(mealCard).join("")}</section>
       <aside class="stack"><section class="card stack"><b>Start from this plan</b><p class="mute">We'll pre-fill the meals; you choose who it's for.</p><a class="btn btn--block" href="#/plans/new?from=${p.key}">Use this plan</a><button class="btn btn--ghost btn--block" data-act="share" data-what="${esc(p.name)}">${ic("share")}Share</button></section></aside></div>`,
@@ -1079,7 +635,7 @@
       back: "#/plans",
       html: `<form class="cols" data-form="plan" novalidate><div class="stack">
       <section class="card stack"><h2 class="h" style="margin:0">Plan for</h2>
-        <div class="stack">${S.members.map((m) => `<label class="member"><input type="checkbox" name="mem" value="${m.id}" ${sel.includes(m.id) ? "checked" : ""} style="width:20px;height:20px;accent-color:var(--p)"><span class="ava ava--soft">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)} · ${m.age} yrs${m.allergies.length ? " · " + esc(m.allergies.join(", ")) : ""}</small></div></label>`).join("")}</div>
+        <div class="stack">${S.members.map((m) => `<label class="member"><input type="checkbox" name="mem" value="${m.id}" ${sel.includes(m.id) ? "checked" : ""} style="width:20px;height:20px;accent-color:var(--p)"><span class="ava ava--soft">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)}${m.age ? " · " + m.age + " yrs" : ""}${m.allergies.length ? " · " + esc(m.allergies.join(", ")) : ""}</small></div></label>`).join("")}</div>
         <a class="link" href="#/family">${ic("plus")} Add family member</a></section>
       <section class="card stack"><label class="field"><span>Plan name</span><input class="inp" name="name" value="${esc(d.name || (from ? from.name : "Plan " + String(myOrders().filter((o) => o.kind === "plan").length + 1).padStart(3, "0")))}"></label>
         <label class="field"><span>Duration</span><select class="inp" name="weeks">${[1, 2, 4].map((w) => `<option value="${w}" ${Number(d.weeks || 1) === w ? "selected" : ""}>${w} week${w > 1 ? "s" : ""}</option>`).join("")}</select></label>
@@ -1096,21 +652,23 @@
     const al = $$("[name=al]:checked", f).length;
     $("[data-plan-sum]").innerHTML =
       `<h2 class="h" style="margin:0">Review</h2><div class="sumbar"><span>${weeks} WEEK PLAN</span><span>${mem} PERSONS</span><span>${al} ALLERGIES</span><span>${meals} MEALS</span></div>
-      <dl class="kv"><div><dt>${mem} × ${weeks} week × ${money(PRICE_PP_WEEK)}</dt><dd>${money(planPrice(mem, weeks))}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(planPrice(mem, weeks))}</b></dd></div></dl>`;
+      <dl class="kv"><div><dt>${mem} × ${weeks} week × ${money(PRICE_PP_WEEK())}</dt><dd>${money(planPrice(mem, weeks))}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(planPrice(mem, weeks))}</b></dd></div></dl>`;
   }
   V.review = () => {
     const d = S.draft;
     if (!d || d.kind !== "plan") return go("#/plans/new");
+    const self = (S.members.find((m) => m.rel === "You") || {}).id;
     const others = d.members.length - 1;
     return {
       title: "Review",
       back: "#/plans/new",
       html: `<section class="card stack center" style="max-width:560px;margin:0 auto">
       <h2 class="title-g" style="font-size:26px">HEY ${esc(S.user.name.split(" ")[0].toUpperCase())}!</h2>
-      <p>Your ${d.weeks} week meal plan for ${d.members.includes("m0") ? "yourself" + (others > 0 ? ` and ${others} member${others > 1 ? "s" : ""}` : "") : d.members.length + " members"} costs <b>${money(d.price)}</b> only.</p>
+      <p>Your ${d.weeks} week meal plan for ${d.members.includes(self) ? "yourself" + (others > 0 ? ` and ${others} member${others > 1 ? "s" : ""}` : "") : d.members.length + " members"} costs <b>${money(d.price)}</b> only.</p>
       <div class="sumbar" style="justify-content:center"><span>${d.weeks} WEEK PLAN</span><span>${d.members.length} PERSONS</span><span>${d.allergies.length} ALLERGIES</span><span>${d.meals.length} MEALS</span></div>
       <dl class="kv" style="text-align:left"><div><dt>Plan for</dt><dd>${esc(d.members.map(memberName).join(", "))}</dd></div><div><dt>Meals</dt><dd>${esc(d.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(d.allergies.join(", ") || "None")}</dd></div>${d.info ? `<div><dt>Additional info</dt><dd>${esc(d.info)}</dd></div>` : ""}</dl>
-      <a class="btn btn--block" href="#/pay">Proceed to payment</a><a class="btn btn--ghost btn--block" href="#/plans/new">Edit</a></section>`,
+      <p class="mute" style="font-size:13px">Next you'll see GreenFed's bank account. Pay by transfer; a nutritionist starts once we confirm the money arrived.</p>
+      <button class="btn btn--block" data-act="place-plan">Proceed to payment</button><a class="btn btn--ghost btn--block" href="#/plans/new">Edit</a></section>`,
     };
   };
   V.planOne = (q, id) => {
@@ -1120,15 +678,16 @@
     const d = Math.min(6, Number(q.get("d")) || 0);
     const who = q.get("m") || "all";
     const member = S.members.find((m) => m.id === who);
-    const meals = member ? genDay(d, o.meals, [...new Set([...o.allergies, ...member.allergies])]) : o.days[d];
+    const meals = o.days[d] || [];
     return {
       title: o.name,
       back: "#/plans",
       html: `<div class="cols"><div class="stack">
       <div class="sumbar"><span>${o.weeks} WEEK PLAN</span><span>${persons(o)} PERSONS</span><span>${o.allergies.length} ALLERGIES</span><span>${o.meals.length} MEALS</span></div>
       <div class="daytabs noprint" role="group" aria-label="Day">${DAYS.map((n, i) => `<button data-act="day" data-d="${i}" aria-pressed="${i === d}">${n.slice(0, 3).toUpperCase()}</button>`).join("")}</div>
-      <div class="utabs noprint" role="group" aria-label="Person"><a href="#/plans/${o.id}?d=${d}" aria-current="${who === "all"}">Everybody</a>${o.members.map((m) => `<a href="#/plans/${o.id}?d=${d}&m=${m}" aria-current="${who === m}">${esc(memberName(m).split(" ")[0])}</a>`).join("")}</div>
+      <div class="utabs noprint" role="group" aria-label="Person"><a href="#/plans/${o.id}?d=${d}" aria-current="${who === "all"}">Everybody</a>${o.members.map((m) => `<a href="#/plans/${o.id}?d=${d}&m=${m}" aria-current="${who === m}">${esc((memberName(m) || o.memberNames[o.members.indexOf(m)] || "").split(" ")[0])}</a>`).join("")}</div>
       <h2 class="h" style="margin:4px 0 0">${DAYS[d]}${member ? " · " + esc(member.name) : ""}</h2>
+      ${member ? `<p class="mute">${member.allergies.length ? "Allergies: " + esc(member.allergies.join(", ")) + ". Your nutritionist planned around the allergies you listed for this plan." : "No allergies on record for " + esc(member.name.split(" ")[0]) + "."}</p>` : ""}
       <div>${meals.map(mealCard).join("")}</div>
       <p class="mute">Prepared by: ${esc(o.staff.nutritionist || "GreenFed")} · GreenFed ${new Date(o.created).getFullYear()}</p></div>
       <aside class="stack noprint"><section class="card stack"><a class="btn btn--block" href="#/grocery?tab=plan&plan=${o.id}">${ic("bag")}Shop grocery</a><button class="btn btn--line btn--block" data-act="print">${ic("download")}Download plan</button><button class="btn btn--ghost btn--block" data-act="share" data-what="${esc(o.name)} meal plan">${ic("share")}Share</button></section>
@@ -1136,34 +695,41 @@
     };
   };
 
-  V.pay = () => {
-    const d = S.draft;
-    if (!d) return go("#/home");
-    const c = S.cards[0];
+  V.pay = (q) => {
+    const o = order(q.get("id"));
+    if (!o || o.owner) return go("#/orders");
+    if (!["AWAITING_PAYMENT", "PAYMENT_SENT"].includes(o.status)) return go("#/orders/" + o.id);
+    const b = S.settings.bank || {};
+    const ref = "GF-" + o.id;
+    const sent = o.status === "PAYMENT_SENT";
     return {
-      title: "Checkout",
-      back: d.kind === "plan" ? "#/plans/review" : "#/cart",
-      html: `<form class="cols" data-form="pay" novalidate><section class="card stack">
-      <div class="paycard"><div class="row row--sb"><b>CREDIT CARD</b>${ic("card")}</div><span class="num" data-cnum>${c ? "•••• •••• •••• " + c.last4 : "1234 5678 8797 6587"}</span><div class="row row--sb"><div><small>Card name</small><b data-cname>${esc(c ? c.name : S.user.name)}</b></div><div><small>Expiry</small><b data-cexp>${esc(c ? c.exp : "06/28")}</b></div></div></div>
-      <label class="field"><span>Card number</span><input class="inp" name="num" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="1234 5678 8797 6587"></label>
-      <label class="field"><span>Card name</span><input class="inp" name="cname" autocomplete="cc-name" value="${esc(S.user.name)}"></label>
-      <div class="grid2"><label class="field"><span>Expiry date</span><input class="inp" name="exp" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY"></label><label class="field"><span>CVV</span><input class="inp" name="cvv" inputmode="numeric" maxlength="4" autocomplete="cc-csc"></label></div>
-      <p class="mute" style="font-size:13px">Card payments aren't connected yet: nothing is charged, and only the last four digits are kept on this device.</p></section>
-      <aside class="stack"><section class="card stack"><dl class="kv"><div><dt>${d.kind === "plan" ? "Meal plan" : "Grocery items"}</dt><dd>${money(d.kind === "plan" ? d.price : d.total)}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(d.kind === "plan" ? d.price : d.total)}</b></dd></div></dl><p class="err" data-err hidden></p><button class="btn btn--block">Pay now</button></section></aside></form>`,
+      title: "Pay by bank transfer",
+      back: o.kind === "plan" ? "#/plans" : "#/orders",
+      html: `<div class="cols"><section class="card stack">
+      <div class="paycard"><div class="row row--sb"><b>BANK TRANSFER</b>${ic("wallet")}</div><span class="num">${esc(b.account_number || "")}</span><div class="row row--sb"><div><small>Bank</small><b>${esc(b.bank_name || "")}</b></div><div><small>Account name</small><b>${esc(b.account_name || "")}</b></div></div></div>
+      <div class="row wrap"><button class="btn btn--line btn--sm" data-act="copy" data-v="${esc(b.account_number || "")}">${ic("link")}Copy account number</button><button class="btn btn--line btn--sm" data-act="copy" data-v="${esc(ref)}">${ic("link")}Copy reference ${esc(ref)}</button></div>
+      <ol class="tl"><li class="${sent ? "done" : "now"}"><b>Transfer exactly ${money(o.total)}</b><small>From any Nigerian bank app. Put ${esc(ref)} in the narration if you can.</small></li><li class="${sent ? "now" : ""}"><b>Tell us you've paid</b><small>We check the account and confirm, usually within a few hours.</small></li><li><b>${o.kind === "plan" ? "A nutritionist picks up your plan" : "We gather, check and pack your groceries"}</b><small>You'll see each step here and in Notifications.</small></li></ol>
+      ${o.note ? `<div class="pin" style="background:var(--r-soft)"><span><b>We couldn't confirm your last transfer:</b> ${esc(o.note)}</span></div>` : ""}
+      ${
+        sent
+          ? `<div class="pin"><span><b>Thanks.</b> You told us you paid from ${esc(o.paySender)} (${esc(o.payBank)}). We're confirming it now.</span></div>`
+          : `<form class="stack" data-form="paid" data-id="${o.id}" novalidate><h2 class="h" style="margin:0">I've sent the money</h2><div class="grid2"><label class="field"><span>Name on the account you paid from</span><input class="inp" name="sender" autocomplete="name" value="${esc(S.user.name)}"></label><label class="field"><span>Your bank</span><input class="inp" name="bank" list="gf-banks" placeholder="e.g. GTBank, OPay"></label></div><datalist id="gf-banks">${["Access Bank", "First Bank", "GTBank", "Kuda", "Moniepoint", "OPay", "PalmPay", "UBA", "Wema Bank", "Zenith Bank"].map((x) => `<option value="${x}">`).join("")}</datalist><p class="err" data-err hidden></p><button class="btn btn--block">I've sent ${money(o.total)}</button></form>`
+      }</section>
+      <aside class="stack"><section class="card stack"><dl class="kv"><div><dt>${o.kind === "plan" ? esc(o.name) + " · meal plan" : "Grocery items"}</dt><dd>${money(o.total)}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(o.total)}</b></dd></div></dl>
+        <p class="mute" style="font-size:13px">Pay only into the ${esc(b.bank_name || "")} account above. GreenFed will never ask for your card PIN or a code by phone.</p>
+        <button class="btn btn--ghost btn--block" data-act="cancel-order" data-id="${o.id}">Cancel this order</button></section></aside></div>`,
     };
   };
   V.success = (q) => {
     const o = order(q.get("id"));
     if (!o) return go("#/home");
-    const amt = o.kind === "plan" ? o.price : o.total;
     return {
-      title: "Success",
-      html: `<section class="card stack center" style="max-width:520px;margin:0 auto"><div class="big-ok">${ic("check")}</div><h2 class="title-g" style="font-size:26px">Success</h2>
-      <p>Your payment of <b>${money(amt)}</b> has been made successfully for ${o.kind === "plan" ? "your meal plan. A nutritionist will pick it up shortly, and you'll get your plan within 48 hours." : "grocery items. We'll gather, check and pack your order before it heads to you."}</p>
+      title: "Thank you",
+      html: `<section class="card stack center" style="max-width:520px;margin:0 auto"><div class="big-ok">${ic("check")}</div><h2 class="title-g" style="font-size:26px">Thank you</h2>
+      <p>We're confirming your transfer of <b>${money(o.total)}</b> for ${o.kind === "plan" ? "your meal plan. Once it's confirmed, a nutritionist picks it up and you'll get your plan within 48 hours." : "your grocery items. Once it's confirmed, we gather, check and pack your order before it heads to you."}</p>
       <a class="btn btn--block" href="#/orders/${o.id}">${o.kind === "plan" ? "Track meal plan" : "Track grocery"}</a><a class="btn btn--ghost btn--block" href="#/home">Go back</a></section>`,
     };
   };
-
   V.grocery = (q) => {
     const tab = q.get("tab") || "popular";
     const cat = q.get("cat") || "";
@@ -1191,7 +757,7 @@
             .flatMap((o) => o.items.map(([id]) => id)),
         ),
       ];
-      list = ids.map(item);
+      list = ids.map(item).filter(Boolean);
     } else if (tab === "popular" && !cat) list = ITEMS.filter((i) => i.pop).concat(ITEMS.filter((i) => !i.pop));
     if (cat) list = list.filter((i) => i.cat === cat);
     const tabs = [
@@ -1206,7 +772,12 @@
       title: "Menu",
       html: `<div class="stack">
       <label class="search"><span class="sr-only">Search groceries</span>${ic("search")}<input class="inp" type="search" placeholder="What are you looking for?" data-act="gsearch"></label>
-      <div class="promo-g"><span class="art">${ic("bowl")}</span><div><small>Get up to</small><b>20% Discount</b><small>Order selected food from the app and get a discount. See Offers.</small></div></div>
+      ${(() => {
+        const top = Math.max(0, ...ITEMS.map((i) => i.disc || 0));
+        return top
+          ? `<a class="promo-g" href="#/grocery?tab=offers"><span class="art">${ic("bowl")}</span><div><small>Get up to</small><b>${top}% Discount</b><small>On selected groceries this week. See Offers.</small></div></a>`
+          : "";
+      })()}
       <div class="row row--sb"><h2 class="h" style="margin:0">Categories</h2>${cat ? `<a class="link" href="#/grocery?tab=${tab}">See all</a>` : ""}</div>
       <div class="cats" role="group" aria-label="Categories">${CATS.map(([n, i]) => `<a class="cat" href="#/grocery?tab=${tab}&cat=${n}" aria-pressed="${cat === n}"><span>${ic(i)}</span>${n}</a>`).join("")}</div>
       <div class="utabs" role="group" aria-label="Lists">${tabs.map(([kk, n]) => `<a href="#/grocery?tab=${kk}${cat ? "&cat=" + cat : ""}" aria-current="${tab === kk}">${n}</a>`).join("")}</div>
@@ -1217,13 +788,13 @@
   };
   function prodCard(it) {
     const q = S.cart[it.id] || 0;
-    return `<article class="prod" data-q="${esc((it.name + " " + it.cat).toLowerCase())}"><div class="prod__art" style="--tint:${CAT[it.cat].t};--ink2:${CAT[it.cat].c}">${ic(CAT[it.cat].i)}${it.pop ? "<small>100+</small>" : ""}${it.off ? '<span class="prod__off">−20%</span>' : ""}</div>
+    return `<article class="prod" data-q="${esc((it.name + " " + it.cat).toLowerCase())}"><div class="prod__art" style="--tint:${CAT[it.cat].t};--ink2:${CAT[it.cat].c}">${ic(CAT[it.cat].i)}${it.off ? `<span class="prod__off">−${it.disc}%</span>` : ""}</div>
       <button class="fav" data-act="fav" data-id="${it.id}" aria-pressed="${S.favs.includes(it.id)}" aria-label="Favourite ${esc(it.name)}">${ic("heart")}</button>
       <b>${esc(it.name)}</b><small>${esc(it.unit)}${it.al.length ? " · contains " + esc(it.al.join(", ").toLowerCase()) : ""}</small>
       <div class="prod__row"><span class="price">${money(priceOf(it))}${it.off ? `<s>${money(it.price)}</s>` : ""}</span>${q ? `<span class="qty"><button data-act="qty" data-id="${it.id}" data-d="-1" aria-label="Remove one">−</button><b>${q}</b><button data-act="qty" data-id="${it.id}" data-d="1" aria-label="Add one">+</button></span>` : `<button class="addbtn" data-act="qty" data-id="${it.id}" data-d="1" aria-label="Add ${esc(it.name)} to cart">${ic("plus")}</button>`}</div></article>`;
   }
   V.cart = () => {
-    const rows = Object.entries(S.cart);
+    const rows = Object.entries(S.cart).filter(([id]) => item(id));
     const allAl = [...new Set(S.members.flatMap((m) => m.allergies))];
     const warn = rows.map(([id]) => item(id)).filter((it) => it.al.some((a) => allAl.includes(a)));
     return {
@@ -1241,10 +812,10 @@
       ${warn.length ? `<div class="pin" style="background:var(--r-soft)"><span><b>Allergy check:</b> ${esc(warn.map((w) => w.name).join(", "))} contain${warn.length === 1 ? "s" : ""} ${esc([...new Set(warn.flatMap((w) => w.al.filter((a) => allAl.includes(a))))].join(", ").toLowerCase())}, which someone in your household is allergic to.</span></div>` : ""}
       <section class="card stack"><h2 class="h" style="margin:0">Delivery</h2>
         <label class="field"><span>Delivery address</span><input class="inp" name="address" value="${esc(S.user.address)}"></label>
-        <label class="field"><span>Delivery slot</span><select class="inp" name="slot">${["Friday, 14:00–16:00", "Saturday, 10:00–12:00", "Saturday, 14:00–16:00", "Sunday, 12:00–14:00"].map((s) => `<option>${s}</option>`).join("")}</select></label>
+        <label class="field"><span>Delivery slot</span><select class="inp" name="slot">${(S.settings.slots || []).map((s) => `<option>${esc(s)}</option>`).join("")}</select></label>
         <div class="toggle-row"><div><b>Deliver every week</b><small class="mute">Farm-fresh produce on the same day each week</small></div><label class="switch"><input type="checkbox" name="weekly" checked aria-label="Deliver every week"><span></span></label></div></section></div>
       <aside class="stack" style="position:sticky;top:20px"><section class="card stack"><dl class="kv"><div><dt>Subtotal</dt><dd>${money(rows.reduce((a, [id, q]) => a + item(id).price * q, 0))}</dd></div><div><dt>Offers</dt><dd style="color:var(--p)">−${money(rows.reduce((a, [id, q]) => a + (item(id).price - priceOf(item(id))) * q, 0))}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(cartTotal())}</b></dd></div></dl>
-        <p class="err" data-err hidden></p><button class="btn btn--block">Checkout</button></section></aside></form>`
+        <p class="mute" style="font-size:13px">You'll pay by bank transfer to GreenFed on the next screen.</p><p class="err" data-err hidden></p><button class="btn btn--block">Checkout</button></section></aside></form>`
         : `<div class="card empty"><b>Your cart is empty</b><a class="btn btn--sm" href="#/grocery" style="margin-top:10px">Shop grocery</a></div>`,
     };
   };
@@ -1252,7 +823,7 @@
   V.orders = (q) => {
     const f = q.get("f") || "active";
     const list = myOrders()
-      .filter((o) => (f === "active" ? o.status !== "DELIVERED" : f === "done" ? o.status === "DELIVERED" : true))
+      .filter((o) => (f === "active" ? isLive(o) : f === "done" ? o.status === "DELIVERED" : true))
       .sort((a, b) => b.created - a.created);
     return {
       title: "Track orders",
@@ -1271,23 +842,30 @@
     if (!o || o.owner) return go("#/orders");
     const isG = o.kind === "grocery";
     const flow = isG ? GROC_FLOW : PLAN_FLOW;
-    const next = flow[flow.indexOf(o.status) + 1];
     const conflict = S.conflicts.find((c) => c.order === o.id);
+    const payBox =
+      o.status === "AWAITING_PAYMENT"
+        ? `<section class="card stack"><b>Waiting for your payment</b><p class="mute">${o.note ? esc(o.note) : "Transfer " + money(o.total) + " to GreenFed to start this order."}</p><a class="btn btn--sm" href="#/pay?id=${o.id}">Pay now</a></section>`
+        : o.status === "PAYMENT_SENT"
+          ? `<section class="card stack"><b>Confirming your payment</b><p class="mute">You told us you paid from ${esc(o.paySender)} (${esc(o.payBank)}). We'll let you know as soon as it's confirmed.</p></section>`
+          : "";
     return {
       title: isG ? "Tracking order" : "Meal plan request",
       back: "#/orders",
       html: `<div class="cols"><div class="stack">
-      ${isG && o.status === "EN_ROUTE" ? `<div class="map"><svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice" aria-label="Map of the delivery route"><g class="roads" fill="none" stroke-width="9"><path d="M-10 60 L410 90"/><path d="M-10 170 L410 150"/><path d="M90 -10 L120 240"/><path d="M250 -10 L230 240"/></g><path class="route" d="M60 150 C120 120 130 70 200 64 S300 40 340 30" fill="none" stroke="#27A844" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="150" r="9" fill="#27A844"/><path d="M340 14c-7 0-11 5-11 10 0 8 11 17 11 17s11-9 11-17c0-5-4-10-11-10z" fill="#F59E0B"/><g class="rider moving" style="--at:60%"><circle r="11" fill="#fff"/><circle r="8" fill="#27A844"/></g></svg><span class="map__live" style="color:var(--p)">● Your order is on the way</span><div class="map__eta"><small>${esc(o.address.split(",").slice(-2, -1)[0] || "Maryland")}</small><b>${o.km || 7} km · ${o.eta || "1 hr"}</b></div></div>` : ""}
-      <section class="card stack"><div class="row row--sb wrap"><div><small class="mute">${isG ? "Grocery order" : "Meal plan"}</small><p class="h" style="margin:0">${isG ? "#" + o.id.toUpperCase() : esc(o.name)}</p></div>${chip(o.status)}</div>${timeline(o)}
-        ${isG && o.history.length > 1 ? `<p class="mute" style="font-size:13px">Tap the stars to review each stage.</p>` : ""}</section>
+      ${isG && o.status === "EN_ROUTE" ? `<div class="map"><svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice" aria-label="Map of the delivery route"><g class="roads" fill="none" stroke-width="9"><path d="M-10 60 L410 90"/><path d="M-10 170 L410 150"/><path d="M90 -10 L120 240"/><path d="M250 -10 L230 240"/></g><path class="route" d="M60 150 C120 120 130 70 200 64 S300 40 340 30" fill="none" stroke="#27A844" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="150" r="9" fill="#27A844"/><path d="M340 14c-7 0-11 5-11 10 0 8 11 17 11 17s11-9 11-17c0-5-4-10-11-10z" fill="#F59E0B"/><g class="rider moving" style="--at:60%"><circle r="11" fill="#fff"/><circle r="8" fill="#27A844"/></g></svg><span class="map__live" style="color:var(--p)">● Your order is on the way</span><div class="map__eta"><small>${esc(o.staff.delivery || "GreenFed delivery")}</small><b>${esc(o.slot)}</b></div></div>` : ""}
+      <section class="card stack"><div class="row row--sb wrap"><div><small class="mute">${isG ? "Grocery order" : "Meal plan"}</small><p class="h" style="margin:0">${isG ? "#" + esc(o.id) : esc(o.name)}</p></div>${chip(o.status)}</div>${timeline(o)}
+        ${isG && paidOrder(o) && o.status !== "PAID" ? `<p class="mute" style="font-size:13px">Tap the stars to review each stage.</p>` : ""}</section>
+      ${payBox}
       ${o.kind === "plan" && o.status === "DELIVERED" ? `<a class="btn" href="#/plans/${o.id}">View my plan</a>` : ""}</div>
     <div class="stack">
       <section class="card stack"><h2 class="h" style="margin:0">Details</h2>${
         isG
-          ? `<ul class="list">${o.items.map(([iid, n]) => `<li><div class="grow"><b>${esc(item(iid).name)}</b><small>${n} × ${money(priceOf(item(iid)))}</small></div><span>${money(priceOf(item(iid)) * n)}</span></li>`).join("")}</ul><dl class="kv"><div><dt>Deliver to</dt><dd>${esc(o.address)}</dd></div><div><dt>Slot</dt><dd>${esc(o.slot)}${o.weekly ? " · weekly" : ""}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(o.total)}</b></dd></div></dl>`
-          : `<dl class="kv"><div><dt>For</dt><dd>${esc(o.members.map(memberName).join(", "))}</dd></div><div><dt>Meals</dt><dd>${esc(o.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(o.allergies.join(", ") || "None")}</dd></div><div><dt>Nutritionist</dt><dd>${esc(o.staff.nutritionist || "Not picked yet")}</dd></div><div class="tot"><dt>Paid</dt><dd><b>${money(o.price)}</b></dd></div></dl>`
+          ? `<ul class="list">${o.items.map((l) => `<li><div class="grow"><b>${esc(lineName(l))}</b><small>${l[1]} × ${money(l[2])}</small></div><span>${money(l[2] * l[1])}</span></li>`).join("")}</ul><dl class="kv"><div><dt>Deliver to</dt><dd>${esc(o.address)}</dd></div><div><dt>Slot</dt><dd>${esc(o.slot)}${o.weekly ? " · weekly" : ""}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(o.total)}</b></dd></div></dl>`
+          : `<dl class="kv"><div><dt>For</dt><dd>${esc(o.memberNames.join(", "))}</dd></div><div><dt>Meals</dt><dd>${esc(o.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(o.allergies.join(", ") || "None")}</dd></div><div><dt>Nutritionist</dt><dd>${esc(o.staff.nutritionist || "Not picked yet")}</dd></div><div class="tot"><dt>Total</dt><dd><b>${money(o.price)}</b></dd></div></dl>`
       }</section>
-      ${isG ? (conflict ? `<section class="card stack"><b>Problem reported</b><p class="mute">${esc(conflict.type)} · ${chip(conflict.status)}${conflict.resolution ? "<br>" + esc(conflict.resolution) : ""}</p></section>` : `<section class="card stack"><b>Something wrong?</b><div class="grid2"><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Late delivery">Late delivery</button><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Poor quality">Poor quality</button></div></section>`) : ""}
+      ${["AWAITING_PAYMENT", "PAYMENT_SENT"].includes(o.status) ? `<button class="btn btn--ghost btn--sm" data-act="cancel-order" data-id="${o.id}">Cancel this order</button>` : ""}
+      ${isG && paidOrder(o) ? (conflict ? `<section class="card stack"><b>Problem reported</b><p class="mute">${esc(conflict.type)} · ${chip(conflict.status)}${conflict.resolution ? "<br>" + esc(conflict.resolution) : ""}</p></section>` : `<section class="card stack"><b>Something wrong?</b><div class="grid2"><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Late delivery">Late delivery</button><button class="btn btn--line btn--sm" data-act="conflict" data-id="${o.id}" data-t="Poor quality">Poor quality</button></div></section>`) : ""}
 
     </div></div>`,
     };
@@ -1313,9 +891,9 @@
         .map(([kk, n]) => `<a href="#/community?tab=${kk}" aria-current="${tab === kk}">${n}</a>`)
         .join("")}</div>
       <div class="chips">${cats.map((c) => `<a class="chip" href="#/community?tab=${tab}${qcat === c ? "" : "&cat=" + encodeURIComponent(c)}" aria-pressed="${qcat === c}">${esc(c)}</a>`).join("")}</div>
-      <div data-comms>${list.map((c) => `<a class="comm" href="#/community/${c.id}" data-q="${esc((c.name + " " + c.cat + " " + c.desc).toLowerCase())}"><span class="comm__ico">${ic(c.pub ? "users" : "lock")}</span><b>${esc(c.name)}</b><span class="comm__side"><span>${c.members}${c.members > 199 ? "+" : ""} members</span>${c.joined ? chip("ACTIVE").replace("Active", "Joined") : `<span class="link">Join</span>`}</span><small>${c.pub ? "" : "Private · "}${esc(c.last)}</small></a>`).join("") || `<div class="card empty"><b>No communities here</b></div>`}</div></div>
-      <aside class="stack"><section class="card stack"><b>Start a community</b><p class="mute">Public or private, around any food or health topic.</p><a class="btn btn--block" href="#/community/new">${ic("plus")}Create community</a></section>
-        <section class="card stack"><b>Health professional?</b><p class="mute">Sign up as a handler or community leader to guide members.</p>${S.leader ? `<p>${chip("PICKED").replace("Picked", "Application pending")}</p>` : `<button class="btn btn--line btn--block" data-act="leader">Apply to lead</button>`}</section>
+      <div data-comms>${list.map((c) => `<a class="comm" href="#/community/${c.id}" data-q="${esc((c.name + " " + c.cat + " " + c.desc).toLowerCase())}"><span class="comm__ico">${ic(c.pub ? "users" : "lock")}</span><b>${esc(c.name)}</b><span class="comm__side"><span>${c.members} member${c.members === 1 ? "" : "s"}</span>${c.joined ? chip("ACTIVE").replace("Active", "Joined") : c.pending ? chip("PICKED").replace("Picked", "Requested") : `<span class="link">Join</span>`}</span><small>${c.pub ? "" : "Private · "}${esc(c.last)}</small></a>`).join("") || `<div class="card empty"><b>No communities here</b></div>`}</div></div>
+      <aside class="stack">${canCreate() ? `<section class="card stack"><b>Start a community</b><p class="mute">Public or private, around any food or health topic.</p><a class="btn btn--block" href="#/community/new">${ic("plus")}Create community</a></section>` : ""}
+        ${role() !== "user" ? "" : `<section class="card stack"><b>Health professional?</b><p class="mute">Sign up as a handler or community leader to guide members.</p>${S.leader ? `<p>${chip("PICKED").replace("Picked", "Application pending")}</p>` : `<button class="btn btn--line btn--block" data-act="leader">Apply to lead</button>`}</section>`}
         <p class="mute" style="font-size:13px">Communities are open to everyone, including people who don't use meal plans or grocery delivery.</p></aside></div>`,
     };
   };
@@ -1323,57 +901,63 @@
     title: "New community",
     back: "#/community",
     html: `<form class="card stack" data-form="comm" style="max-width:640px" novalidate>
-    <div class="seg" role="radiogroup" aria-label="Visibility"><label><input type="radio" name="pub" value="1" checked><span>${ic("globe")}Public<small>Anyone can join</small></span></label><label><input type="radio" name="pub" value="0"><span>${ic("lock")}Private<small>Only invited people can join</small></span></label></div>
+    <div class="seg" role="radiogroup" aria-label="Visibility"><label><input type="radio" name="pub" value="1" checked><span>${ic("globe")}Public<small>Anyone can join</small></span></label><label><input type="radio" name="pub" value="0"><span>${ic("lock")}Private<small>You approve who joins</small></span></label></div>
     <label class="field"><span>Community name</span><input class="inp" name="name" placeholder="Give your community a name"></label>
     <label class="field"><span>Description</span><textarea class="inp" name="desc" placeholder="What is the community about?"></textarea></label>
-    <label class="field"><span>Category</span><select class="inp" name="cat">${["Allergies", "Health issues", "Nutrition", "Food & craft", "Rehabilitation", "Weight", "Balanced diet"].map((c) => `<option>${c}</option>`).join("")}</select></label>
-    <fieldset class="field" style="border:0;padding:0;margin:0"><span>Permissions</span><div class="seg"><label><input type="radio" name="perms" value="anyone" checked><span>Anyone can post</span></label><label><input type="radio" name="perms" value="admins"><span>Only admins can post</span></label></div></fieldset>
-    <label class="field"><span>Cover image (optional)</span><input class="inp" type="file" name="cover" accept="image/*"></label>
+    <label class="field"><span>Category</span><select class="inp" name="cat">${["Allergies", "Health issues", "Nutrition", "Food & craft", "Rehabilitation", "Other"].map((c) => `<option>${c}</option>`).join("")}</select></label>
+    <fieldset class="field" style="border:0;padding:0;margin:0"><span>Permissions</span><div class="seg"><label><input type="radio" name="perms" value="anyone" checked><span>Anyone can post</span></label><label><input type="radio" name="perms" value="admins"><span>Only you and health specialists post</span></label></div></fieldset>
     <p class="err" data-err hidden></p><button class="btn">Create</button></form>`,
   });
   V.commOne = (q, id) => {
     const c = S.communities.find((x) => x.id === id);
     if (!c) return go("#/community");
     const posts = S.posts.filter((p) => p.c === id).sort((a, b) => b.at - a.at);
-    const canPost = c.joined && c.perms === "anyone";
+    const spec = isSpec();
+    const canPost = c.joined && (c.perms === "anyone" || c.mod || spec);
+    const canSee = c.pub || c.joined || role() === "admin";
     return {
       title: c.name,
       back: "#/community",
       html: `<div class="cols"><div class="stack">
       <div class="cover">${ic(c.pub ? "users" : "lock")}</div>
       <div class="row row--sb wrap"><div><h2 class="h" style="margin:0">${esc(c.name)}</h2><small class="mute">${esc(c.cat)} · ${c.members} members · ${c.pub ? "Public" : "Private"}</small></div>
-        <div class="row">${c.joined ? `<button class="btn btn--ghost btn--sm" data-act="leave" data-id="${c.id}">Leave</button>` : `<button class="btn btn--sm" data-act="join" data-id="${c.id}">${c.pub ? "Join" : "Request to join"}</button>`}<button class="btn btn--line btn--sm" data-act="share" data-what="${esc(c.name)} community">${ic("share")}Invite</button></div></div>
+        <div class="row">${c.joined ? `<button class="btn btn--ghost btn--sm" data-act="leave" data-id="${c.id}">Leave</button>` : c.pending ? `<button class="btn btn--ghost btn--sm" disabled>Request sent</button>` : `<button class="btn btn--sm" data-act="join" data-id="${c.id}">${c.pub ? "Join" : "Request to join"}</button>`}<button class="btn btn--line btn--sm" data-act="share" data-what="${esc(c.name)} community">${ic("share")}Invite</button></div></div>
       <p class="mute">${esc(c.desc)}</p>
       ${
         canPost
           ? `<form class="card stack" data-form="post" data-c="${c.id}" novalidate><label class="field"><span>Topic</span><input class="inp" name="title" placeholder="Topic being discussed"></label><label class="field"><span>Type your post</span><textarea class="inp" name="body"></textarea></label><p class="err" data-err hidden></p><button class="btn btn--sm" style="justify-self:start">${ic("send")}Send post</button></form>`
-          : `<p class="card mute">${c.joined ? "Only admins can post here. You can reply to posts." : "Join to post and reply."}</p>`
+          : `<p class="card mute">${c.joined ? "Only the community's leaders and health specialists start posts here. You can reply to posts." : c.pub ? "Join to post and reply." : "This is a private community. Ask to join to read and post."}</p>`
       }
-      <div>${posts.map((p) => postCard(p, c)).join("") || `<div class="card empty"><b>No posts yet</b>Be the first to start a conversation.</div>`}</div></div>
-      <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">About</h2><dl class="kv"><div><dt>Creator</dt><dd>${esc(c.by)}</dd></div><div><dt>Category</dt><dd>${esc(c.cat)}</dd></div><div><dt>Who can post</dt><dd>${c.perms === "anyone" ? "Anyone" : "Admins only"}</dd></div></dl></section></aside></div>`,
+      ${c.requests && c.requests.length ? `<section class="card stack"><b>Asking to join</b><ul class="list">${c.requests.map((r) => `<li><span class="ava ava--soft">${initials(r.name)}</span><div class="grow"><b>${esc(r.name)}</b></div><button class="btn btn--sm" data-act="comm-approve" data-id="${c.id}" data-u="${r.id}">Approve</button><button class="btn btn--ghost btn--sm" data-act="comm-decline" data-id="${c.id}" data-u="${r.id}">Decline</button></li>`).join("")}</ul></section>` : ""}
+      <div>${canSee ? posts.map((p) => postCard(p, c)).join("") || `<div class="card empty"><b>No posts yet</b>Be the first to start a conversation.</div>` : ""}</div></div>
+      <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">About</h2><dl class="kv"><div><dt>Creator</dt><dd>${esc(c.by)}</dd></div><div><dt>Category</dt><dd>${esc(c.cat)}</dd></div><div><dt>Who can post</dt><dd>${c.perms === "anyone" ? "Any member" : "Leaders and health specialists"}</dd></div></dl></section></aside></div>`,
     };
   };
   const replyTree = (rs, pid, c) =>
     rs
       .map(
         (r) =>
-          `<div class="reply"><div class="post__by"><span class="ava ava--soft" style="width:30px;height:30px;font-size:11px">${initials(r.by)}</span><b>${esc(r.by)}</b>${r.role ? `<span class="st st--PAID">${esc(r.role)}</span>` : ""}<span>· ${ago(r.at)}</span></div><p>${esc(r.body)}</p>${c.joined ? `<button class="link" style="justify-self:start;font-size:13px" data-act="reply" data-p="${pid}" data-r="${r.id}">Reply</button>` : ""}${replyTree(r.replies, pid, c)}</div>`,
+          `<div class="reply"><div class="post__by"><span class="ava ava--soft" style="width:30px;height:30px;font-size:11px">${initials(r.by)}</span><b>${esc(r.by)}</b>${r.role ? `<span class="st st--PAID">${esc(r.role)}</span>` : ""}<span>· ${ago(r.at)}</span></div><p>${esc(r.body)}</p>${canReply(c) ? `<button class="link" style="justify-self:start;font-size:13px" data-act="reply" data-p="${pid}" data-r="${r.id}"${isSpec() ? ' data-as="specialist"' : ""}>Reply</button>` : ""}${replyTree(r.replies, pid, c)}</div>`,
       )
       .join("");
   const postCard = (
     p,
     c,
   ) => `<article class="post"><div class="post__by"><span class="ava">${initials(p.by)}</span><div><b>${esc(p.by)}</b> · ${ago(p.at)}</div></div><h3>${esc(p.title)}</h3><p>${esc(p.body)}</p>
-    <div class="post__acts"><button data-act="like" data-id="${p.id}" aria-pressed="${p.liked}">${ic("heart")}${k(p.likes)}</button>${c.joined ? `<button data-act="reply" data-p="${p.id}">${ic("chat")}Reply</button>` : `<span>${ic("chat")}${p.replies.length}</span>`}<button data-act="share" data-what="this post">${ic("share")}Share</button></div>
+    <div class="post__acts"><button data-act="like" data-id="${p.id}" aria-pressed="${p.liked}">${ic("heart")}${k(p.likes)}</button>${canReply(c) ? `<button data-act="reply" data-p="${p.id}"${isSpec() ? ' data-as="specialist"' : ""}>${ic("chat")}Reply</button>` : `<span>${ic("chat")}${p.replies.length}</span>`}<button data-act="share" data-what="this post">${ic("share")}Share</button>${p.mine || c.mod ? `<button data-act="del-post" data-id="${p.id}">${ic("trash")}Remove</button>` : ""}</div>
     ${replyTree(p.replies, p.id, c)}</article>`;
+
+  const isSpec = () => (role() === "employee" && S.emp.type === "health") || role() === "admin";
+  const canReply = (c) => c.joined || isSpec() || (c.pub && role() === "user");
+  const canCreate = () => role() === "user" || role() === "admin" || (role() === "employee" && S.emp.type === "health");
 
   V.notes = (q) => {
     const f = q.get("f") || "All";
     const list = S.notes.filter((n) => f === "All" || n.cat === f);
     return {
       title: "Notification",
-      html: `<div class="stack" style="max-width:820px"><div class="row row--sb wrap"><div class="utabs">${["All", "Meal Plan", "Grocery", "Profile"].map((c) => `<a href="#/notifications?f=${encodeURIComponent(c)}" aria-current="${f === c}">${c}</a>`).join("")}</div><button class="link" data-act="read-all">Mark all as read</button></div>
-      <section class="card">${list.length ? `<ul class="list">${list.map((n) => `<li><span class="ava ${n.read ? "ava--soft" : ""}">${ic(n.cat === "Grocery" ? "bag" : n.cat === "Meal Plan" ? "plan" : "user")}</span><a class="grow" href="${n.link}" data-act="open-note" data-id="${n.id}"><b>${esc(n.t)}</b><small>${esc(n.s)}<br>${ago(n.at)} · ${esc(n.cat)}</small></a></li>`).join("")}</ul>` : `<div class="empty"><b>You're all caught up</b></div>`}</section></div>`,
+      html: `<div class="stack" style="max-width:820px"><div class="row row--sb wrap"><div class="utabs">${["All", ...new Set(S.notes.map((n) => n.cat))].map((c) => `<a href="#/notifications?f=${encodeURIComponent(c)}" aria-current="${f === c}">${c}</a>`).join("")}</div><button class="link" data-act="read-all">Mark all as read</button></div>
+      <section class="card">${list.length ? `<ul class="list">${list.map((n) => `<li><span class="ava ${n.read ? "ava--soft" : ""}">${ic({ Grocery: "bag", "Meal Plan": "plan", Payment: "wallet", Community: "users", Conflict: "flag", Staff: "clipboard" }[n.cat] || "user")}</span><a class="grow" href="${n.link}" data-act="open-note" data-id="${n.id}"><b>${esc(n.t)}</b><small>${esc(n.s)}<br>${ago(n.at)} · ${esc(n.cat)}</small></a></li>`).join("")}</ul>` : `<div class="empty"><b>You're all caught up</b></div>`}</section></div>`,
     };
   };
 
@@ -1395,8 +979,8 @@
         .join("")}</div>
       <div class="row wrap"><label class="search" style="flex:1;min-width:200px"><span class="sr-only">Search your report</span>${ic("search")}<input class="inp" type="search" placeholder="Search your report" data-act="hsearch"></label><button class="btn" data-act="add-rec">${ic("plus")}Add record</button></div>
       <div class="utabs">${["All", ...types].map((t) => `<a href="#/health?t=${encodeURIComponent(t)}" aria-current="${tab === t}">${t === "All" ? "All records" : t}</a>`).join("")}</div>
-      <section class="card"><p class="mute" style="font-size:13px">${list.length} records found · ID: ${String(S.user.email.length).padStart(7, "0")}</p><div class="recs" data-recs>${list.map((r) => `<div class="rec" data-q="${esc((r.name + " " + r.type + " " + memberName(r.member)).toLowerCase())}"><span class="rec__ico">${ic(r.type === "Allergy" ? "alert" : r.type === "Medication" ? "pill" : "heart")}</span><b>${esc(r.name)}</b><button class="btn btn--danger btn--sm" data-act="del-rec" data-id="${r.id}" aria-label="Delete record ${esc(r.name)}">${ic("trash")}</button><small class="mute">${esc(r.type)} · ${esc(memberName(r.member))} · ${fmtDate(r.date)} · ${esc(r.by)} · <span class="sev sev--${r.sev}">${r.sev}</span></small></div>`).join("") || `<p class="mute">No records in this list.</p>`}</div></section>
-      <p class="mute" style="font-size:13px">Sample data. Your records are only used to plan meals and are never shared in communities.</p></div>`,
+      <section class="card"><p class="mute" style="font-size:13px">${list.length} records found · ID: ${String(ACCOUNT ? ACCOUNT.id : "").padStart(7, "0")}</p><div class="recs" data-recs>${list.map((r) => `<div class="rec" data-q="${esc((r.name + " " + r.type + " " + memberName(r.member)).toLowerCase())}"><span class="rec__ico">${ic(r.type === "Allergy" ? "alert" : r.type === "Medication" ? "pill" : "heart")}</span><b>${esc(r.name)}</b><button class="btn btn--danger btn--sm" data-act="del-rec" data-id="${r.id}" aria-label="Delete record ${esc(r.name)}">${ic("trash")}</button><small class="mute">${esc(r.type)} · ${esc(memberName(r.member))} · ${fmtDate(r.date)} · ${esc(r.by)} · <span class="sev sev--${r.sev}">${r.sev}</span></small></div>`).join("") || `<p class="mute">No records in this list.</p>`}</div></section>
+      <p class="mute" style="font-size:13px">Only you can see these records. GreenFed staff see the allergies you put on a meal plan, nothing else, and records are never shared in communities.</p></div>`,
     };
   };
 
@@ -1408,19 +992,24 @@
     const tog = (kk, t, s) =>
       `<div class="toggle-row"><div><b>${t}</b><small class="mute">${s}</small></div><label class="switch"><input type="checkbox" data-act="pref" data-k="${kk}" ${S.prefs[kk] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`;
     const u = S.user;
-    const name = r === "employee" ? EMP[S.emp.type].who : r === "admin" ? "GreenFed admin" : u.name;
+    const name = u.name;
+    const me = S.members[0] || {};
     return {
       title: "Profile",
       html: `<div class="cols"><section class="card"><ul class="menu">
-      ${pp(
-        "personal",
-        "user",
-        "Personal information",
-        "Name, sex, address, occupation, age",
-        `<form class="stack" data-form="profile" novalidate><div class="grid2"><label class="field"><span>Name</span><input class="inp" name="name" value="${esc(u.name)}"></label><label class="field"><span>Sex</span><select class="inp" name="sex">${["Female", "Male"].map((s) => `<option ${S.members[0].sex === s ? "selected" : ""}>${s}</option>`).join("")}</select></label></div>
-        <div class="grid2"><label class="field"><span>Age</span><input class="inp" name="age" type="number" value="${S.members[0].age}"></label><label class="field"><span>Marital status</span><input class="inp" name="marital" value="${esc(u.marital)}"></label></div>
-        <label class="field"><span>Address</span><input class="inp" name="address" value="${esc(u.address)}"></label><div class="grid2"><label class="field"><span>Occupation</span><input class="inp" name="occupation" value="${esc(u.occupation)}"></label><label class="field"><span>Phone</span><input class="inp" name="phone" value="${esc(u.phone)}"></label></div><button class="btn btn--sm">Update</button></form>`,
-      )}
+      ${
+        r === "user"
+          ? pp(
+              "personal",
+              "user",
+              "Personal information",
+              "Sex, age, address, occupation",
+              `<form class="stack" data-form="profile" novalidate><p class="mute" style="font-size:13px">Your name and phone number are part of your Rehohub account. <a class="link" href="${esc(RH.url("account/index.html"))}">Change them there.</a></p><div class="grid2"><label class="field"><span>Sex</span><select class="inp" name="sex">${["", "Female", "Male"].map((s) => `<option ${me.sex === s ? "selected" : ""} value="${s}">${s || "Choose"}</option>`).join("")}</select></label><label class="field"><span>Age</span><input class="inp" name="age" type="number" min="0" max="120" value="${me.age || ""}"></label></div>
+        <label class="field"><span>Marital status</span><input class="inp" name="marital" value="${esc(u.marital)}"></label>
+        <label class="field"><span>Address</span><input class="inp" name="address" value="${esc(u.address)}"></label><label class="field"><span>Occupation</span><input class="inp" name="occupation" value="${esc(u.occupation)}"></label><button class="btn btn--sm">Update</button></form>`,
+            )
+          : ""
+      }
       ${
         r === "user"
           ? pp(
@@ -1428,18 +1017,18 @@
               "heart",
               "Health status",
               "Height, body goal, allergies",
-              `<form class="stack" data-form="healthst" novalidate><div class="grid2"><label class="field"><span>Height (cm)</span><input class="inp" name="height" type="number" value="${u.height}"></label><label class="field"><span>Weight (kg)</span><input class="inp" name="weight" type="number" value="${u.weight}"></label></div>
-        <label class="field"><span>Body goal</span><select class="inp" name="goal">${["Lose weight", "Maintain a healthy weight", "Gain weight", "Build muscle", "Manage a health condition"].map((g) => `<option ${u.goal === g ? "selected" : ""}>${g}</option>`).join("")}</select></label><label class="field"><span>Goal description</span><input class="inp" name="goalNote" value="${esc(u.goalNote)}"></label>
-        <fieldset class="field" style="border:0;padding:0;margin:0"><span>My allergies</span><div class="checks">${ALLERGENS.map((a) => `<label><input type="checkbox" name="al" value="${a}" ${S.members[0].allergies.includes(a) ? "checked" : ""}><span>${a}</span></label>`).join("")}</div></fieldset><button class="btn btn--sm">Save</button></form>`,
+              `<form class="stack" data-form="healthst" novalidate><div class="grid2"><label class="field"><span>Height (cm)</span><input class="inp" name="height" type="number" value="${u.height || ""}"></label><label class="field"><span>Weight (kg)</span><input class="inp" name="weight" type="number" value="${u.weight || ""}"></label></div>
+        <label class="field"><span>Body goal</span><select class="inp" name="goal">${["", "Lose weight", "Maintain a healthy weight", "Gain weight", "Build muscle", "Manage a health condition"].map((g) => `<option value="${g}" ${u.goal === g ? "selected" : ""}>${g || "Choose"}</option>`).join("")}</select></label><label class="field"><span>Goal description</span><input class="inp" name="goalNote" value="${esc(u.goalNote)}"></label>
+        <fieldset class="field" style="border:0;padding:0;margin:0"><span>My allergies</span><div class="checks">${ALLERGENS.map((a) => `<label><input type="checkbox" name="al" value="${a}" ${me.allergies.includes(a) ? "checked" : ""}><span>${a}</span></label>`).join("")}</div></fieldset><button class="btn btn--sm">Save</button></form>`,
             )
           : ""
       }
       ${r === "user" ? `<li><a href="#/family">${ic("users")}<span class="grow"><b>Family members</b><small>${S.members.length - 1} added · add husband, wife or kids</small></span>${ic("chev-right")}</a></li><li><a href="#/health">${ic("clipboard")}<span class="grow"><b>My health record</b><small>Allergies, diagnoses, reports</small></span>${ic("chev-right")}</a></li><li><a href="../assets/media/greenfed/greenfed-tour.mp4" download="GreenFed-quick-tour.mp4">${ic("download")}<span class="grow"><b>How to use GreenFed</b><small>Download the 2-minute video tour</small></span>${ic("chev-right")}</a></li>` : ""}
       ${pp("notify", "bell", "Notification", "Email and app alerts", `${tog("email", "Email", "Meal plan delivery and order updates")}${tog("push", "In-app", "Every stage of your orders")}${tog("community", "Community", "Replies and mentions")}${tog("promos", "Offers", "New plans and grocery discounts")}`)}
-      ${pp("account", "lock", "Account", "Email, password, delete account", `<dl class="kv"><div><dt>Email</dt><dd>${esc(u.email)}</dd></div><div><dt>Status</dt><dd>${chip(u.status)}</dd></div></dl><a class="btn btn--line btn--sm" href="${esc(RH.url("account/index.html"))}">Email, password and roles</a>`)}
+      ${pp("account", "lock", "Account", "Email, password, delete account", `<dl class="kv"><div><dt>Email</dt><dd>${esc(u.email)}</dd></div><div><dt>Status</dt><dd>${chip("ACTIVE")}</dd></div></dl><a class="btn btn--line btn--sm" href="${esc(RH.url("account/index.html"))}">Email, password and roles</a>`)}
       <li><div class="toggle-row" style="padding:14px 4px;border-bottom:1px solid var(--line)"><div class="row">${ic("moon")}<b>Dark mode</b></div><label class="switch"><input type="checkbox" data-act="pref" data-k="dark" ${S.prefs.dark ? "checked" : ""} aria-label="Dark mode"><span></span></label></div></li>
       <li><button class="danger" data-act="logout">${ic("logout")}<span class="grow"><b>Log out</b></span></button></li></ul></section>
-      <aside class="stack"><section class="card prof"><span class="ava ava--lg">${initials(name)}</span><h2>${esc(name)}</h2><p class="mute">${esc(r === "employee" ? EMP[S.emp.type].name : r === "admin" ? "Administrator" : u.email)}</p>${r === "user" ? `<dl class="facts"><div><dt>Age</dt><dd>${S.members[0].age}</dd></div><div><dt>Height</dt><dd>${u.height} cm</dd></div><div><dt>Goal</dt><dd>${esc(u.goal)}</dd></div></dl>` : ""}</section></aside></div>`,
+      <aside class="stack"><section class="card prof"><span class="ava ava--lg">${initials(name)}</span><h2>${esc(name)}</h2><p class="mute">${esc(r === "employee" ? S.emp.name : r === "admin" ? "Administrator" : u.email)}</p>${r === "user" ? `<dl class="facts"><div><dt>Age</dt><dd>${me.age || "—"}</dd></div><div><dt>Height</dt><dd>${u.height ? u.height + " cm" : "—"}</dd></div><div><dt>Goal</dt><dd>${esc(u.goal || "—")}</dd></div></dl>` : ""}</section></aside></div>`,
     };
   };
   V.family = () => ({
@@ -1452,39 +1041,62 @@
       <fieldset class="field" style="border:0;padding:0;margin:0"><span>Allergies</span><div class="checks">${ALLERGENS.map((a) => `<label><input type="checkbox" name="al" value="${a}"><span>${a}</span></label>`).join("")}</div></fieldset>
       <label class="field"><span>Health status</span><input class="inp" name="cond" placeholder="e.g. none, diabetes"></label>
       <p class="err" data-err hidden></p><button class="btn">Continue</button></form>
-    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Your household</h2>${S.members.map((m) => `<div class="member"><span class="ava ava--soft">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)} · ${m.age} yrs${m.allergies.length ? " · " + esc(m.allergies.join(", ")) : ""}</small></div>${m.rel === "You" ? "" : `<button class="btn btn--danger btn--sm" data-act="del-mem" data-id="${m.id}" aria-label="Remove ${esc(m.name)}">${ic("trash")}</button>`}</div>`).join("")}</section></aside></div>`,
+    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Your household</h2>${S.members.map((m) => `<div class="member"><span class="ava ava--soft">${initials(m.name)}</span><div><b>${esc(m.name)}</b><small>${esc(m.rel)}${m.age ? " · " + m.age + " yrs" : ""}${m.allergies.length ? " · " + esc(m.allergies.join(", ")) : ""}</small></div>${m.rel === "You" ? "" : `<button class="btn btn--danger btn--sm" data-act="del-mem" data-id="${m.id}" aria-label="Remove ${esc(m.name)}">${ic("trash")}</button>`}</div>`).join("")}</section></aside></div>`,
   });
 
   // ------------------------------------------------------------ employee views
   function queueFor(type) {
     const O = S.orders;
     if (type === "nutritionist") return O.filter((o) => o.kind === "plan" && o.status === "PAID");
-    if (type === "supply" || type === "supplier") return O.filter((o) => o.kind === "grocery" && o.status === "PAID");
+    if (type === "supply") return O.filter((o) => o.kind === "grocery" && o.status === "PAID");
+    if (type === "supplier") return O.filter((o) => o.kind === "grocery" && ["PAID", "GATHERING"].includes(o.status));
     if (type === "qa") return O.filter((o) => o.kind === "grocery" && o.status === "GATHERING" && o.gathered);
     if (type === "delivery") return O.filter((o) => o.kind === "grocery" && o.status === "QA" && o.passed);
     return [];
   }
+  const mine = (o, key) => (o.staffMine || []).includes(key);
   function activeFor(type) {
-    const who = EMP[type].who;
     const O = S.orders;
     if (type === "nutritionist")
       return O.find(
-        (o) => o.kind === "plan" && ["PICKED", "IN_PROGRESS"].includes(o.status) && o.staff.nutritionist === who,
+        (o) => o.kind === "plan" && ["PICKED", "IN_PROGRESS"].includes(o.status) && mine(o, "nutritionist"),
       );
     if (type === "supply")
-      return O.find((o) => o.kind === "grocery" && o.status === "GATHERING" && !o.gathered && o.staff.supply === who);
-    if (type === "qa")
-      return O.find((o) => o.kind === "grocery" && o.status === "QA" && !o.passed && o.staff.qa === who);
+      return O.find((o) => o.kind === "grocery" && o.status === "GATHERING" && !o.gathered && mine(o, "supply"));
+    if (type === "qa") return O.find((o) => o.kind === "grocery" && o.status === "QA" && !o.passed && mine(o, "qa"));
     if (type === "delivery")
-      return O.find(
-        (o) => o.kind === "grocery" && ["PACKAGED", "EN_ROUTE"].includes(o.status) && o.staff.delivery === who,
-      );
+      return O.find((o) => o.kind === "grocery" && ["PACKAGED", "EN_ROUTE"].includes(o.status) && mine(o, "delivery"));
     return null;
   }
   const owner = (o) => o.owner || S.user.name;
+  const linesText = (o) => o.items.map((l) => l[1] + " × " + lineName(l)).join(", ");
+  // The nutritionist's 7-day draft: generated from the meal library around the plan's allergies, then edited.
+  const DRAFTS = {};
+  function planEditor(o) {
+    const gen = (DRAFTS[o.id] = DRAFTS[o.id] || DAYS.map((_, i) => genDay(i, o.meals, o.allergies)));
+    return `<form class="stack" data-form="deliver" data-id="${o.id}" novalidate><b>7-day plan</b><p class="mute" style="font-size:13px">Drafted from the GreenFed meal library, avoiding ${o.allergies.length ? esc(o.allergies.join(", ").toLowerCase()) : "nothing (no allergies listed)"}. Edit any dish before you deliver.</p>
+      ${DAYS.map(
+        (dn, d) =>
+          `<details ${d === 0 ? "open" : ""}><summary><b>${dn}</b></summary><div class="stack" style="margin-top:8px">${gen[
+            d
+          ]
+            .map(
+              (m, i) =>
+                `<label class="field"><span>${m.meal}</span><textarea class="inp" name="d${d}m${i}" rows="2" maxlength="300">${esc(m.dish)}</textarea></label>`,
+            )
+            .join("")}</div></details>`,
+      ).join("")}
+      <p class="err" data-err hidden></p><button class="btn btn--o">Deliver plan to client</button></form>`;
+  }
+  const payLine = () => {
+    const t = EMP[S.emp.type] || {};
+    if (t.pay === "task") return `${money(RATE())} per delivered meal plan`;
+    if (t.pay === "contract") return "Paid per delivery contract with GreenFed, outside the app";
+    return "Salaried. Your salary is paid outside the app";
+  };
   V.work = () => {
     const t = S.emp.type,
-      e = EMP[t];
+      e = EMP[t] || { name: S.emp.name, queue: "" };
     const act = activeFor(t);
     const queue = queueFor(t);
     let actHtml = "";
@@ -1493,7 +1105,7 @@
       const step = isP
         ? act.status === "PICKED"
           ? ["Start working on plan", "start"]
-          : ["Deliver plan to client", "deliver"]
+          : null
         : t === "supply"
           ? ["Mark as gathered", "gathered"]
           : t === "qa"
@@ -1501,53 +1113,59 @@
             : act.status === "PACKAGED"
               ? ["Out for delivery", "out"]
               : ["Mark delivered", "delivered"];
-      actHtml = `<section class="job job--active"><div class="row row--sb wrap"><b>Current order · ${esc(isP ? act.name : "#" + act.id.toUpperCase())}</b>${chip(act.status)}</div>
-        <dl class="kv"><div><dt>Client</dt><dd>${esc(owner(act))}</dd></div>${isP ? `<div><dt>Persons</dt><dd>${persons(act)}</dd></div><div><dt>Meals</dt><dd>${esc(act.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(act.allergies.join(", ") || "None")}</dd></div>${act.info ? `<div><dt>Notes</dt><dd>${esc(act.info)}</dd></div>` : ""}` : `<div><dt>Items</dt><dd>${esc(act.items.map(([iid, n]) => n + " × " + item(iid).name).join(", "))}</dd></div><div><dt>Deliver to</dt><dd>${esc(act.address)}</dd></div><div><dt>Slot</dt><dd>${esc(act.slot)}</dd></div>`}</dl>
-        ${isP && act.status === "IN_PROGRESS" ? `<div><b>Draft plan · Monday</b>${genDay(0, act.meals, act.allergies).map(mealCard).join("")}<p class="mute" style="font-size:13px;margin-top:8px">The full 7-day plan is generated from the GreenFed meal library, avoiding the client's allergies. Review it before delivering.</p></div>` : ""}
-        <button class="btn btn--o" data-act="emp-step" data-id="${act.id}" data-s="${step[1]}">${step[0]}</button></section>`;
+      actHtml = `<section class="job job--active"><div class="row row--sb wrap"><b>Current order · ${esc(isP ? act.name : "#" + act.id)}</b>${chip(act.status)}</div>
+        <dl class="kv"><div><dt>Client</dt><dd>${esc(owner(act))}</dd></div>${isP ? `<div><dt>Persons</dt><dd>${persons(act)}</dd></div><div><dt>Weeks</dt><dd>${act.weeks}</dd></div><div><dt>Meals</dt><dd>${esc(act.meals.join(", "))}</dd></div><div><dt>Allergies</dt><dd>${esc(act.allergies.join(", ") || "None")}</dd></div>${act.info ? `<div><dt>Notes</dt><dd>${esc(act.info)}</dd></div>` : ""}` : `<div><dt>Items</dt><dd>${esc(linesText(act))}</dd></div><div><dt>Deliver to</dt><dd>${esc(act.address)}</dd></div><div><dt>Slot</dt><dd>${esc(act.slot)}</dd></div>`}</dl>
+        ${isP && act.status === "IN_PROGRESS" ? planEditor(act) : ""}
+        ${step ? `<button class="btn btn--o" data-act="emp-step" data-id="${act.id}" data-s="${step[1]}">${step[0]}</button>` : ""}</section>`;
     }
     const health = t === "health";
     return {
       title: `My work · ${e.name}`,
       html: `<div class="cols"><div class="stack">
-      <div class="card" style="padding:14px"><small class="mute">Your role</small><b>${esc(e.name)}</b></div>
+      <div class="card" style="padding:14px"><small class="mute">Your role</small><br /><b>${esc(e.name)}</b></div>
       ${actHtml}
       ${
         health
-          ? `<section class="stack"><h2 class="h" style="margin:0">Community: recent posts</h2>${S.posts
-              .slice()
-              .sort((a, b) => b.at - a.at)
-              .map((p) => {
-                const c = S.communities.find((x) => x.id === p.c);
-                return `<article class="post"><div class="post__by"><b>${esc(p.by)}</b> in ${esc(c.name)} · ${ago(p.at)}</div><h3>${esc(p.title)}</h3><p>${esc(p.body)}</p><button class="btn btn--sm" style="justify-self:start" data-act="reply" data-p="${p.id}" data-as="specialist">Reply as health specialist</button></article>`;
-              })
-              .join("")}</section>`
+          ? `<section class="stack"><h2 class="h" style="margin:0">Community: recent posts</h2>${
+              S.posts
+                .slice()
+                .sort((a, b) => b.at - a.at)
+                .map((p) => {
+                  const c = S.communities.find((x) => x.id === p.c) || { name: "" };
+                  return `<article class="post"><div class="post__by"><b>${esc(p.by)}</b> in <a class="link" href="#/community/${p.c}">${esc(c.name)}</a> · ${ago(p.at)}</div><h3>${esc(p.title)}</h3><p>${esc(p.body)}</p><button class="btn btn--sm" style="justify-self:start" data-act="reply" data-p="${p.id}" data-as="specialist">Reply as health specialist</button></article>`;
+                })
+                .join("") ||
+              `<div class="card empty"><b>No posts yet</b>Posts from GreenFed communities appear here.</div>`
+            }</section>`
           : `<section class="stack"><h2 class="h" style="margin:0">${esc(e.queue)} · waiting</h2>${
               queue.length
                 ? queue
                     .map(
                       (
                         o,
-                      ) => `<article class="job"><div class="row row--sb wrap"><b>${esc(o.kind === "plan" ? o.name + " · " + persons(o) + " persons" : "Grocery #" + o.id.toUpperCase())}</b>${chip(o.status)}</div><small class="mute">${esc(owner(o))} · ${ago(o.created)}${o.kind === "plan" ? " · " + esc(o.meals.join(", ")) : " · " + o.items.length + " items · " + esc(o.slot)}</small>
-            ${t === "supplier" ? `<p class="mute">${esc(o.items.map(([iid, n]) => n + " × " + item(iid).name).join(", "))}</p><button class="btn btn--sm" style="justify-self:start" data-act="supplied" data-id="${o.id}" ${o.supplied ? "disabled" : ""}>${o.supplied ? "Supplied" : "Mark items supplied"}</button>` : `<button class="btn btn--sm" style="justify-self:start" data-act="emp-pick" data-id="${o.id}" ${act ? "disabled" : ""}>Pick this order</button>`}</article>`,
+                      ) => `<article class="job"><div class="row row--sb wrap"><b>${esc(o.kind === "plan" ? o.name + " · " + persons(o) + " persons" : "Grocery #" + o.id)}</b>${chip(o.status)}</div><small class="mute">${esc(owner(o))} · ${ago(o.created)}${o.kind === "plan" ? " · " + esc(o.meals.join(", ")) : " · " + o.items.length + " items · " + esc(o.slot)}</small>
+            ${t === "supplier" ? `<p class="mute">${esc(linesText(o))}</p><button class="btn btn--sm" style="justify-self:start" data-act="supplied" data-id="${o.id}" ${o.supplied ? "disabled" : ""}>${o.supplied ? "Supplied" : "Mark items supplied"}</button>` : `<button class="btn btn--sm" style="justify-self:start" data-act="emp-pick" data-id="${o.id}" ${act ? "disabled" : ""}>Pick this order</button>`}</article>`,
                     )
                     .join("")
-                : `<div class="card empty"><b>Queue is empty</b>New orders appear here as clients pay.</div>`
+                : `<div class="card empty"><b>Queue is empty</b>New orders appear here once GreenFed confirms the client's payment.</div>`
             }
             ${act && queue.length && t !== "supplier" ? `<p class="mute" style="font-size:13px">You can hold one order at a time. Finish your current order to pick another.</p>` : ""}</section>`
       }</div>
-      <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Work meter</h2><b style="font-size:28px;color:var(--p)">${S.emp.tasks} tasks</b><div class="meter"><i style="width:${Math.min(100, S.emp.tasks * 2)}%"></i></div><p class="mute">Expected this month: ${money(S.emp.tasks * RATE)} (sample rate ${money(RATE)} per task)</p><a class="btn btn--line btn--sm" href="#/work/earnings">Details</a></section>
+      <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Work meter</h2><b style="font-size:28px;color:var(--p)">${S.emp.tasks} task${S.emp.tasks === 1 ? "" : "s"}</b><div class="meter"><i style="width:${Math.min(100, S.emp.tasks * 2)}%"></i></div><p class="mute">${EMP[t] && EMP[t].pay === "task" ? `Due to you: <b>${money(S.emp.tasks * RATE())}</b> (${money(RATE())} per plan)` : esc(payLine())}</p><a class="btn btn--line btn--sm" href="#/work/earnings">Details</a></section>
         <section class="card stack"><b>Order chain</b><p class="mute" style="font-size:13px">Supply manager → Quality assurance → Packaging &amp; delivery. Each stage is visible to the client.</p></section></aside></div>`,
     };
   };
-  V.earnings = () => ({
-    title: "Work meter",
-    html: `<div class="cols"><div class="stack">
-      <section class="welcome"><small>Tasks completed this cycle</small><h2>${S.emp.tasks}</h2><p>Expected withdrawal: <b>${money(S.emp.tasks * RATE)}</b> · paid monthly${S.emp.type === "supplier" ? " (suppliers are paid per supply invoice)" : ""}.</p></section>
-      <section class="card"><h2 class="h">Payments</h2>${S.emp.paid.length ? `<ul class="list">${S.emp.paid.map((p) => `<li><div class="grow"><b>${money(p.amt)}</b><small>${p.tasks} tasks · ${fmtDate(p.at)}</small></div>${chip("RESOLVED").replace("Resolved", "Paid")}</li>`).join("")}</ul>` : `<p class="mute">No payments yet. The counter resets after each payment.</p>`}</section></div>
-    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">Salary details</h2>${S.emp.bank ? `<p><b>${esc(S.emp.bank.bank)}</b><br><span class="mute">${esc(S.emp.bank.acct)} · ${esc(S.emp.bank.name)}</span></p>` : `<p class="mute">Add the account your salary is paid into.</p>`}
-      <form class="stack" data-form="salary" novalidate><label class="field"><span>Bank</span><select class="inp" name="bank">${["Access Bank", "First Bank", "GTBank", "Kuda", "UBA", "Wema Bank", "Zenith Bank"].map((b) => `<option>${b}</option>`).join("")}</select></label><label class="field"><span>Account number</span><input class="inp" name="acct" inputmode="numeric" maxlength="10"></label><label class="field"><span>Account name</span><input class="inp" name="name" value="${esc(EMP[S.emp.type].who)}"></label><p class="err" data-err hidden></p><button class="btn btn--sm">Save details</button></form></section></aside></div>`,
-  });
+  V.earnings = () => {
+    const perTask = EMP[S.emp.type] && EMP[S.emp.type].pay === "task";
+    return {
+      title: "Work meter",
+      html: `<div class="cols"><div class="stack">
+      <section class="welcome"><small>Tasks completed since the last ${perTask ? "payment" : "reset"}</small><h2>${S.emp.tasks}</h2><p>${perTask ? `Due to you: <b>${money(S.emp.tasks * RATE())}</b> at ${money(RATE())} per delivered meal plan. GreenFed pays you by transfer and marks it paid here.` : esc(payLine()) + ". The meter counts your work so GreenFed can see it."}</p></section>
+      <section class="card"><h2 class="h">${perTask ? "Payments" : "Meter resets"}</h2>${S.emp.paid.length ? `<ul class="list">${S.emp.paid.map((p) => `<li><div class="grow"><b>${perTask ? money(p.amt) : p.tasks + " tasks"}</b><small>${perTask ? p.tasks + " plans · " : ""}${fmtDate(p.at)}</small></div>${chip("RESOLVED").replace("Resolved", perTask ? "Paid" : "Counted")}</li>`).join("")}</ul>` : `<p class="mute">Nothing yet. ${perTask ? "The counter resets after each payment." : "An administrator resets the counter each cycle."}</p>`}</section></div>
+    <aside class="stack"><section class="card stack"><h2 class="h" style="margin:0">${perTask ? "Payout details" : "Salary details"}</h2>${S.emp.bank ? `<p><b>${esc(S.emp.bank.bank)}</b><br><span class="mute">${esc(S.emp.bank.acct)} · ${esc(S.emp.bank.name)}</span></p>` : `<p class="mute">Add the account GreenFed pays you into.</p>`}
+      <form class="stack" data-form="salary" novalidate><label class="field"><span>Bank</span><select class="inp" name="bank">${["Access Bank", "First Bank", "GTBank", "Kuda", "Moniepoint", "OPay", "UBA", "Wema Bank", "Zenith Bank"].map((b) => `<option ${S.emp.bank && S.emp.bank.bank === b ? "selected" : ""}>${b}</option>`).join("")}</select></label><label class="field"><span>Account number</span><input class="inp" name="acct" inputmode="numeric" maxlength="10" value="${esc(S.emp.bank ? S.emp.bank.acct : "")}"></label><label class="field"><span>Account name</span><input class="inp" name="name" value="${esc(S.emp.bank ? S.emp.bank.name : S.user.name)}"></label><p class="err" data-err hidden></p><button class="btn btn--sm">Save details</button></form></section></aside></div>`,
+    };
+  };
   V.complaints = () => ({
     title: "Complaints",
     html: `<div class="cols"><form class="card stack" data-form="complaint" novalidate>
@@ -1559,37 +1177,60 @@
   // ------------------------------------------------------------ admin views
   V.admin = () => {
     const O = S.orders;
-    const rev = O.reduce((a, o) => a + (o.kind === "plan" ? o.price : o.total), 0);
+    const rev = O.filter(paidOrder).reduce((a, o) => a + o.total, 0);
+    const toConfirm = O.filter((o) => o.status === "PAYMENT_SENT");
+    const waiting = O.filter((o) => o.status === "AWAITING_PAYMENT").length;
     return {
       title: "Company overview",
       html: `<div class="stack">
       <div class="kpis">${[
-        ["Meal plans", O.filter((o) => o.kind === "plan").length],
-        ["Grocery orders", O.filter((o) => o.kind === "grocery").length],
-        ["Communities", S.communities.length],
-        ["Revenue", money(rev)],
+        ["Payments to confirm", toConfirm.length],
+        ["Meal plans", O.filter((o) => o.kind === "plan" && paidOrder(o)).length],
+        ["Grocery orders", O.filter((o) => o.kind === "grocery" && paidOrder(o)).length],
+        ["Revenue received", money(rev)],
         ["Open conflicts", S.conflicts.filter((c) => c.status === "OPEN").length],
       ]
         .map(([n, v]) => `<div class="card kpi"><small>${n}</small><b>${v}</b></div>`)
         .join("")}</div>
-      <section class="card tbl"><h2 class="h" style="padding-top:8px">All orders</h2><table><thead><tr><th>Order</th><th>Ordered by</th><th>Picked by</th><th>Progress</th><th>Amount</th><th><span class="sr-only">Action</span></th></tr></thead><tbody>
-        ${O.slice()
-          .sort((a, b) => b.created - a.created)
-          .map((o) => {
-            const flow = o.kind === "plan" ? PLAN_FLOW : GROC_FLOW;
-            const nx = flow[flow.indexOf(o.status) + 1];
-            return `<tr><td><b>${esc(o.kind === "plan" ? o.name : "Grocery #" + o.id.toUpperCase())}</b><br><small class="mute">${o.kind === "plan" ? "Meal plan" : "Grocery"}</small></td><td>${esc(owner(o))}</td><td>${esc(Object.values(o.staff).join(", ") || "—")}</td><td>${chip(o.status)}</td><td>${money(o.kind === "plan" ? o.price : o.total)}</td><td>${nx ? `<button class="btn btn--ghost btn--sm" data-act="advance" data-id="${o.id}">Advance</button>` : ""}</td></tr>`;
-          })
-          .join("")}</tbody></table></section>
-      <section class="card tbl"><div class="row row--sb wrap" style="padding:8px 0"><h2 class="h" style="margin:0">Staff work meters</h2><button class="btn btn--ghost btn--sm" data-act="pay-staff">Pay staff and reset counters</button></div><table><thead><tr><th>Staff</th><th>Type</th><th>Tasks</th><th>Due</th></tr></thead><tbody>${Object.entries(
-        EMP,
-      )
-        .map(
-          ([kk, e]) =>
-            `<tr><td>${esc(e.who)}</td><td>${e.name}</td><td>${kk === S.emp.type ? S.emp.tasks : "—"}</td><td>${kk === S.emp.type ? money(S.emp.tasks * RATE) : "—"}</td></tr>`,
-        )
-        .join("")}</tbody></table></section>
-      <section class="card"><h2 class="h">Employee complaints</h2>${S.emp.complaints.length ? `<ul class="list">${S.emp.complaints.map((c, i) => `<li><div class="grow"><b>${esc(c.type)} · ${esc(c.by)}</b><small>${esc(c.body)}</small></div>${c.status === "OPEN" ? `<button class="btn btn--sm" data-act="close-complaint" data-i="${i}">Resolve</button>` : chip(c.status)}</li>`).join("")}</ul>` : `<p class="mute">No complaints.</p>`}</section></div>`,
+      <section class="card stack"><div class="row row--sb wrap"><h2 class="h" style="margin:0">Payments to confirm</h2><small class="mute">Into ${esc(S.settings.bank.bank_name || "")} ${esc(S.settings.bank.account_number || "")}${waiting ? ` · ${waiting} order${waiting === 1 ? "" : "s"} not paid yet` : ""}</small></div>
+        ${toConfirm.length ? `<ul class="list">${toConfirm.map((o) => `<li><div class="grow"><b>${money(o.total)} · ${esc(owner(o))}</b><small>${o.kind === "plan" ? esc(o.name) + " meal plan" : "Grocery #" + esc(o.id)} · ref GF-${esc(o.id)} · from ${esc(o.paySender)} (${esc(o.payBank)}) · ${ago(o.history[o.history.length - 1][1])}</small></div><button class="btn btn--sm" data-act="pay-ok" data-id="${o.id}">Money received</button><button class="btn btn--ghost btn--sm" data-act="pay-no" data-id="${o.id}">Not received</button></li>`).join("")}</ul>` : `<p class="mute">Nothing to confirm. When a customer says they've paid, it shows here. Check your bank app before you confirm.</p>`}</section>
+      <section class="card tbl"><h2 class="h" style="padding-top:8px">All orders</h2><table><thead><tr><th>Order</th><th>Ordered by</th><th>Staff</th><th>Progress</th><th>Amount</th></tr></thead><tbody>
+        ${
+          O.map(
+            (o) =>
+              `<tr><td><b>${esc(o.kind === "plan" ? o.name : "Grocery #" + o.id)}</b><br><small class="mute">${o.kind === "plan" ? "Meal plan" : "Grocery"}</small></td><td>${esc(owner(o))}</td><td>${esc(Object.values(o.staff).join(", ") || "—")}</td><td>${chip(o.status)}</td><td>${money(o.total)}</td></tr>`,
+          ).join("") || `<tr><td colspan="5" class="mute">No orders yet.</td></tr>`
+        }</tbody></table></section>
+      <section class="card tbl"><div class="row row--sb wrap" style="padding:8px 0"><h2 class="h" style="margin:0">Staff work meters</h2><small class="mute">Nutritionists: ${money(RATE())} per plan. Others are salaried or contracted outside the app.</small></div><table><thead><tr><th>Staff</th><th>Type</th><th>Tasks</th><th>Due</th><th>Pay into</th><th><span class="sr-only">Action</span></th></tr></thead><tbody>${
+        S.staff
+          .map(
+            (st) =>
+              `<tr><td>${esc(st.name)}</td><td>${esc(st.typeName)}</td><td>${st.tasks}</td><td>${st.due === null ? "Outside the app" : money(st.due)}</td><td>${esc(st.bank || "—")}</td><td>${st.tasks ? (st.due === null ? `<button class="btn btn--ghost btn--sm" data-act="reset-meter" data-u="${st.id}">Reset counter</button>` : `<button class="btn btn--sm" data-act="pay-staff" data-u="${st.id}" data-amt="${st.due}" data-n="${esc(st.name)}">Mark ${money(st.due)} paid</button>`) : ""}</td></tr>`,
+          )
+          .join("") ||
+        `<tr><td colspan="6" class="mute">No approved staff yet. Approve GreenFed staff in the Rehohub admin console.</td></tr>`
+      }</tbody></table></section>
+      <section class="card"><h2 class="h">Employee complaints</h2>${S.complaints.length ? `<ul class="list">${S.complaints.map((c) => `<li><div class="grow"><b>${esc(c.type)} · ${esc(c.by)}</b><small>${esc(c.body)} · ${ago(c.at)}</small></div>${c.status === "OPEN" ? `<button class="btn btn--sm" data-act="close-complaint" data-id="${c.id}">Resolve</button>` : chip(c.status)}</li>`).join("")}</ul>` : `<p class="mute">No complaints.</p>`}</section>
+      <section class="card"><h2 class="h">Community leader applications</h2>${S.leaders.length ? `<ul class="list">${S.leaders.map((l) => `<li><div class="grow"><b>${esc(l.name)}</b><small>${esc(l.email)} · applied ${fmtDate(l.at)}</small></div></li>`).join("")}</ul><p class="mute" style="font-size:13px">Check their licence, then invite them as a GreenFed health specialist from the Rehohub admin console.</p>` : `<p class="mute">No applications.</p>`}</section></div>`,
+    };
+  };
+  V.settings = () => {
+    const st = S.settings,
+      b = st.bank || {};
+    return {
+      title: "Prices and bank",
+      html: `<div class="cols"><div class="stack">
+      <form class="card stack" data-form="settings" novalidate><h2 class="h" style="margin:0">Prices</h2>
+        <div class="grid2"><label class="field"><span>Meal plan: per person per week (₦)</span><input class="inp" name="plan_price" type="number" min="0" value="${st.plan_price}"></label><label class="field"><span>Nutritionist pay per plan (₦)</span><input class="inp" name="nutritionist_rate" type="number" min="0" value="${st.nutritionist_rate}"></label></div>
+        <h2 class="h" style="margin:0">Bank account customers pay into</h2>
+        <div class="grid2"><label class="field"><span>Bank</span><input class="inp" name="bank_name" value="${esc(b.bank_name)}"></label><label class="field"><span>Account number</span><input class="inp" name="account_number" inputmode="numeric" maxlength="10" value="${esc(b.account_number)}"></label></div>
+        <label class="field"><span>Account name</span><input class="inp" name="account_name" value="${esc(b.account_name)}"></label>
+        <p class="mute" style="font-size:13px">New prices apply to new orders. Orders already placed keep their price.</p><p class="err" data-err hidden></p><button class="btn btn--sm" style="justify-self:start">Save</button></form>
+      <section class="card tbl"><div class="row row--sb wrap" style="padding:8px 0"><h2 class="h" style="margin:0">Grocery items</h2><button class="btn btn--sm" data-act="item-edit">${ic("plus")}Add item</button></div><table><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Discount</th><th>Status</th><th><span class="sr-only">Edit</span></th></tr></thead><tbody>${ITEMS.map(
+        (it) =>
+          `<tr><td><b>${esc(it.name)}</b><br><small class="mute">${esc(it.unit)}${it.al.length ? " · " + esc(it.al.join(", ")) : ""}</small></td><td>${esc(it.cat)}</td><td>${money(it.price)}${it.off ? `<br><small class="mute">now ${money(it.now)}</small>` : ""}</td><td>${it.disc ? it.disc + "%" : "—"}</td><td>${it.active ? chip("ACTIVE") : chip("DEACTIVATED").replace("Deactivated", "Hidden")}</td><td><button class="btn btn--ghost btn--sm" data-act="item-edit" data-id="${it.id}">Edit</button></td></tr>`,
+      ).join("")}</tbody></table></section></div>
+      <aside class="stack"><section class="card stack"><b>How customers pay</b><p class="mute" style="font-size:13px">Customers transfer to the account here and tell GreenFed they've paid. Confirm the money arrived from Overview → Payments to confirm. Staff only see an order after you confirm it.</p></section></aside></div>`,
     };
   };
   V.users = () => ({
@@ -1600,8 +1241,8 @@
   });
   V.conflicts = () => ({
     title: "Conflicts",
-    html: `<div class="stack" style="max-width:900px"><p class="mute">Late delivery: waive the next delivery. Poor quality: recall and resupply.</p>
-    ${S.conflicts.length ? S.conflicts.map((c, i) => `<article class="job"><div class="row row--sb wrap"><b>${esc(c.type)} · order #${esc(c.order.toUpperCase())}</b>${chip(c.status)}</div><small class="mute">${esc(c.by)} · ${ago(c.at)}</small>${c.status === "OPEN" ? `<button class="btn btn--sm" style="justify-self:start" data-act="resolve" data-i="${i}">${c.type === "Late delivery" ? "Waive next delivery" : "Recall and resupply"}</button>` : `<p class="mute">${esc(c.resolution)}</p>`}</article>`).join("") : `<div class="card empty"><b>No conflicts</b>Customers report late or poor-quality deliveries from their order page.</div>`}</div>`,
+    html: `<div class="stack" style="max-width:900px"><p class="mute">Late delivery: waive the next delivery. Poor quality: recall and resupply. The customer is told when you resolve it.</p>
+    ${S.conflicts.length ? S.conflicts.map((c) => `<article class="job"><div class="row row--sb wrap"><b>${esc(c.type)} · order #${esc(c.order)}</b>${chip(c.status)}</div><small class="mute">${esc(c.by)} · ${ago(c.at)}</small>${c.status === "OPEN" ? `<button class="btn btn--sm" style="justify-self:start" data-act="resolve" data-id="${c.id}">${c.type === "Late delivery" ? "Waive next delivery" : "Recall and resupply"}</button>` : `<p class="mute">${esc(c.resolution)}</p>`}</article>`).join("") : `<div class="card empty"><b>No conflicts</b>Customers report late or poor-quality deliveries from their order page.</div>`}</div>`,
   });
 
   // ------------------------------------------------------------ modals
@@ -1631,6 +1272,32 @@
       `<h2>${rid ? "Reply to the reply" : "Reply to this post"}</h2><form class="stack" data-form="reply" data-p="${pid}" data-r="${rid || ""}" data-as="${asSpec ? "1" : ""}" novalidate><label class="field"><span>Your comment</span><textarea class="inp" name="body"></textarea></label><p class="err" data-err hidden></p><div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn">Post</button></div></form>`,
     );
   }
+  function itemModal(id) {
+    const it = item(id) || {
+      id: "",
+      name: "",
+      cat: "Veges",
+      price: "",
+      unit: "",
+      al: [],
+      disc: 0,
+      pop: false,
+      neu: false,
+      active: true,
+    };
+    modal(`<h2>${id ? "Edit item" : "Add item"}</h2><form class="stack" data-form="item" data-id="${esc(it.id)}" novalidate>
+      <div class="grid2"><label class="field"><span>Name</span><input class="inp" name="name" value="${esc(it.name)}"></label><label class="field"><span>Category</span><select class="inp" name="cat">${CATS.map(([n]) => `<option ${it.cat === n ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
+      <div class="grid2"><label class="field"><span>Price (₦)</span><input class="inp" name="price" type="number" min="1" value="${it.price}"></label><label class="field"><span>Unit</span><input class="inp" name="unit" placeholder="e.g. 1 kg" value="${esc(it.unit)}"></label></div>
+      <label class="field"><span>Discount (%)</span><input class="inp" name="discount" type="number" min="0" max="90" value="${it.disc || 0}"></label>
+      <fieldset class="field" style="border:0;padding:0;margin:0"><span>Contains</span><div class="checks">${ALLERGENS.map((a) => `<label><input type="checkbox" name="al" value="${a}" ${it.al.includes(a) ? "checked" : ""}><span>${a}</span></label>`).join("")}</div></fieldset>
+      <div class="checks"><label><input type="checkbox" name="popular" ${it.pop ? "checked" : ""}><span>Popular</span></label><label><input type="checkbox" name="new" ${it.neu ? "checked" : ""}><span>What's new</span></label><label><input type="checkbox" name="active" ${it.active ? "checked" : ""}><span>On sale</span></label></div>
+      <p class="err" data-err hidden></p><div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn">Save</button></div></form>`);
+  }
+  function rejectModal(id) {
+    modal(
+      `<h2>Payment not received</h2><form class="stack" data-form="reject" data-id="${id}" novalidate><p class="mute">The customer is asked to check and tell you again. The order stays on hold.</p><label class="field"><span>Message to the customer</span><textarea class="inp" name="note">We couldn't find your transfer in our account.</textarea></label><div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn">Send</button></div></form>`,
+    );
+  }
   function reviewModal(id) {
     modal(
       `<h2>Review your plan</h2><form class="stack" data-form="review" data-id="${id}" novalidate><div class="rate">${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-act="star" data-v="${v}" class="on" aria-label="${v} star${v > 1 ? "s" : ""}">${ic("star")}</button>`).join("")}</div><input type="hidden" name="stars" value="5"><label class="field"><span>Comment (optional)</span><textarea class="inp" name="note"></textarea></label><div class="grid2"><button type="button" class="btn btn--ghost" data-close>Cancel</button><button class="btn">Submit</button></div></form>`,
@@ -1643,6 +1310,7 @@
     start: A.start,
     setup: A.setup,
   };
+  // Which sides may open a route. "community" is open to customers, administrators and health specialists.
   const ROUTES = [
     [/^\/home$/, V.home, "user"],
     [/^\/plans$/, V.plans, "user"],
@@ -1656,10 +1324,10 @@
     [/^\/cart$/, V.cart, "user"],
     [/^\/orders$/, V.orders, "user"],
     [/^\/orders\/(\w+)$/, V.orderOne, "user"],
-    [/^\/community$/, V.community, "user"],
-    [/^\/community\/new$/, V.newComm, "user"],
-    [/^\/community\/(\w+)$/, V.commOne, "user"],
-    [/^\/notifications$/, V.notes, "user"],
+    [/^\/community$/, V.community, "community"],
+    [/^\/community\/new$/, V.newComm, "community"],
+    [/^\/community\/(\w+)$/, V.commOne, "community"],
+    [/^\/notifications$/, V.notes],
     [/^\/health$/, V.health, "user"],
     [/^\/family$/, V.family, "user"],
     [/^\/profile$/, V.profile],
@@ -1667,9 +1335,12 @@
     [/^\/work\/earnings$/, V.earnings, "employee"],
     [/^\/work\/complaints$/, V.complaints, "employee"],
     [/^\/admin$/, V.admin, "admin"],
+    [/^\/admin\/settings$/, V.settings, "admin"],
     [/^\/admin\/users$/, V.users, "admin"],
     [/^\/admin\/conflicts$/, V.conflicts, "admin"],
   ];
+  const mayOpen = (need) =>
+    !need || need === role() || (need === "community" && (role() !== "employee" || S.emp.type === "health"));
   function render() {
     document.body.classList.toggle("dark", !!S.prefs.dark);
     closeModal();
@@ -1696,11 +1367,14 @@
       try {
         sessionStorage.setItem("gf-after", "#" + raw);
       } catch (e) {}
-      return go(localStorage.getItem("gf-seen-intro") ? "#/start" : "#/welcome");
+      let seen = null;
+      try {
+        seen = localStorage.getItem("gf-seen-intro");
+      } catch (e) {}
+      return go(seen ? "#/start" : "#/welcome");
     }
     const m = ROUTES.map(([re, fn, r]) => [path.match(re), fn, r]).find((x) => x[0]);
-    if (!m) return go(HOME[role()]);
-    if (m[2] && m[2] !== role()) return go(HOME[role()]);
+    if (!m || !mayOpen(m[2])) return go(HOME[role()]);
     const v = m[1](q, m[0][1]);
     if (!v) return;
     view().innerHTML = shell("#" + path, v);
@@ -1716,34 +1390,38 @@
     }
     render.last = path;
   }
-  window.addEventListener("hashchange", render);
+  // Keep the screen current: refresh from the server when moving between pages and every 30 seconds,
+  // but never while someone is typing or has a dialog open.
+  let lastSync = 0;
+  const busy = () => $(".modal") || (document.activeElement && document.activeElement.matches("input,textarea,select"));
+  function refresh(force) {
+    if (!S.session || (!force && Date.now() - lastSync < 4000)) return;
+    lastSync = Date.now();
+    sync().then(
+      () => busy() || render(),
+      () => {},
+    );
+  }
+  window.addEventListener("hashchange", async () => {
+    // Data older than a few seconds is refreshed before the new page is drawn (pages redirect on missing data).
+    if (S.session && Date.now() - lastSync > 4000) {
+      try {
+        await Promise.race([sync(), new Promise((r) => setTimeout(r, 4000))]);
+      } catch (e) {}
+    }
+    render();
+  });
+  setInterval(() => document.visibilityState === "visible" && refresh(true), 30000);
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && refresh());
 
   // ------------------------------------------------------------ events
-  const advance = (o) => {
-    const flow = o.kind === "plan" ? PLAN_FLOW : GROC_FLOW;
-    const nx = flow[flow.indexOf(o.status) + 1];
-    if (!nx) return;
-    if (o.kind === "plan") {
-      if (nx === "PICKED") o.staff.nutritionist = o.staff.nutritionist || EMP.nutritionist.who;
-      if (nx === "DELIVERED") o.days = DAYS.map((_, i) => genDay(i, o.meals, o.allergies));
-    } else {
-      const map = {
-        GATHERING: ["supply", EMP.supply.who],
-        QA: ["qa", EMP.qa.who],
-        EN_ROUTE: ["delivery", EMP.delivery.who],
-      };
-      if (map[nx]) o.staff[map[nx][0]] = o.staff[map[nx][0]] || map[nx][1];
-      if (nx === "QA") o.gathered = true;
-      if (nx === "PACKAGED") o.passed = true;
-    }
-    setStatus(o, nx);
-  };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const a = b.dataset.act,
       id = b.dataset.id;
     if (["role", "pref", "gsearch", "csearch", "hsearch"].includes(a)) return;
+    if (b.tagName === "BUTTON" && b.closest("form") && b.type !== "submit") e.preventDefault();
     if (a === "skip") {
       try {
         localStorage.setItem("gf-seen-intro", "1");
@@ -1755,21 +1433,17 @@
       go("#/profile" + (open ? "" : "?open=" + b.dataset.p));
     }
     if (a === "logout") RH.logout(RH.url("account/login.html"));
-    if (a === "fav") {
-      S.favs = S.favs.includes(id) ? S.favs.filter((x) => x !== id) : [...S.favs, id];
-      save();
-      render();
-    }
+    if (a === "fav") act(api("greenfed/fav", { item: id }), "Saved");
     if (a === "qty") {
       const n = (S.cart[id] || 0) + Number(b.dataset.d);
       if (n <= 0) delete S.cart[id];
-      else S.cart[id] = n;
+      else S.cart[id] = Math.min(50, n);
       save();
       render();
       if (Number(b.dataset.d) > 0 && n === 1) toast(`${item(id).name} added to cart`);
     }
     if (a === "add-plan") {
-      b.dataset.ids.split(",").forEach((x) => (S.cart[x] = (S.cart[x] || 0) + 1));
+      b.dataset.ids.split(",").forEach((x) => item(x) && (S.cart[x] = (S.cart[x] || 0) + 1));
       save();
       toast("Plan groceries added to cart");
       go("#/cart");
@@ -1779,12 +1453,7 @@
       save();
       render();
     }
-    if (a === "fav-plan") {
-      const o = order(id);
-      o.fav = !o.fav;
-      save();
-      render();
-    }
+    if (a === "fav-plan") act(api("greenfed/order/act", { id, action: "fav" }), "Saved");
     if (a === "download") go("#/plans/" + id);
     if (a === "print") window.print();
     if (a === "share") shareModal(b.dataset.what || "this");
@@ -1798,6 +1467,12 @@
       } else toast(`Sharing to ${n} opens in the mobile app.`);
       closeModal();
     }
+    if (a === "copy") {
+      (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.v) : Promise.reject()).then(
+        () => toast("Copied " + b.dataset.v),
+        () => toast(b.dataset.v),
+      );
+    }
     if (a === "day") {
       const h = location.hash.replace(/([?&])d=\d/, "$1").replace(/[?&]$/, "");
       const sep = h.includes("?") ? "&" : "?";
@@ -1809,158 +1484,96 @@
       $$("[data-act=star]", b.parentElement).forEach((x) => x.classList.toggle("on", +x.dataset.v <= v));
       b.closest("form").elements.stars.value = v;
     }
-    if (a === "stage-rate") {
-      const o = order(id);
-      o.reviews[b.dataset.st] = +b.dataset.v;
-      save();
-      render();
-      toast(`Thanks: ${LABEL[b.dataset.st].toLowerCase()} rated ${b.dataset.v}/5`);
+    if (a === "stage-rate")
+      act(
+        api("greenfed/order/act", { id, action: "rate", stage: b.dataset.st, stars: +b.dataset.v }),
+        `Thanks: ${LABEL[b.dataset.st].toLowerCase()} rated ${b.dataset.v}/5`,
+      );
+    if (a === "conflict") act(api("greenfed/order/act", { id, action: "conflict", type: b.dataset.t }));
+    if (a === "place-plan") {
+      const d = S.draft;
+      if (!d) return go("#/plans/new");
+      b.disabled = true;
+      act(api("greenfed/order", { kind: "plan", ...d }), "Order placed", (r) => {
+        S.draft = null;
+        go("#/pay?id=" + r.id);
+      }).then(() => (b.disabled = false));
     }
-    if (a === "advance") {
-      advance(order(id));
-      save();
-      render();
+    if (a === "cancel-order") {
+      if (!confirm("Cancel this order?")) return;
+      act(api("greenfed/order/act", { id, action: "cancel" }), "Order cancelled", () => go("#/orders?f=all"));
     }
-    if (a === "conflict") {
-      S.conflicts.unshift({ order: id, type: b.dataset.t, by: S.user.name, at: now(), status: "OPEN" });
-      save();
-      render();
-      toast("Reported. Our conflict manager will follow up.");
-    }
-    if (a === "join" || a === "leave") {
-      const c = S.communities.find((x) => x.id === id);
-      c.joined = a === "join";
-      c.members += a === "join" ? 1 : -1;
-      save();
-      render();
-      toast(a === "join" ? (c.pub ? `Welcome to ${c.name}` : "Request sent") : `You left ${c.name}`);
-    }
-    if (a === "like") {
-      const p = S.posts.find((x) => x.id === id);
-      p.liked = !p.liked;
-      p.likes += p.liked ? 1 : -1;
-      save();
-      render();
+    if (a === "join" || a === "leave") act(api("greenfed/community", { action: a, id }));
+    if (a === "comm-approve" || a === "comm-decline")
+      act(
+        api("greenfed/community", { action: a.slice(5), id, user_id: +b.dataset.u }),
+        a === "comm-approve" ? "Approved" : "Declined",
+      );
+    if (a === "like") act(api("greenfed/post", { kind: "like", id }), " ");
+    if (a === "del-post") {
+      if (!confirm("Remove this post and its replies?")) return;
+      act(api("greenfed/post", { kind: "delete", id }));
     }
     if (a === "reply") replyModal(b.dataset.p, b.dataset.r, b.dataset.as === "specialist");
-    if (a === "leader") {
-      S.leader = { at: now() };
-      save();
-      render();
-      toast("Application sent. We'll verify your licence.");
-    }
-    if (a === "read-all") {
-      S.notes.forEach((n) => (n.read = true));
-      save();
-      render();
-    }
+    if (a === "leader") act(api("greenfed/misc", { action: "leader" }));
+    if (a === "read-all") act(api("greenfed/misc", { action: "read" }), "All caught up");
     if (a === "open-note") {
       const n = S.notes.find((x) => x.id === id);
-      if (n) {
+      if (n && !n.read) {
         n.read = true;
-        save();
+        api("greenfed/misc", { action: "read", id }).catch(() => {});
       }
     }
     if (a === "add-rec") recModal();
     if (a === "del-rec") {
       if (!confirm("Delete this record?")) return;
-      S.records = S.records.filter((r) => r.id !== id);
-      save();
-      render();
-      toast("Record deleted");
+      act(api("greenfed/record", { delete: id }));
     }
     if (a === "del-mem") {
-      S.members = S.members.filter((m) => m.id !== id);
-      save();
-      render();
-      toast("Family member removed");
+      if (!confirm("Remove this family member?")) return;
+      act(api("greenfed/member", { delete: id }));
     }
-    if (a === "emp-pick") {
-      const o = order(id),
-        t = S.emp.type,
-        who = EMP[t].who;
-      if (activeFor(t)) return toast("Finish your current order first.");
-      if (t === "nutritionist") setStatus(o, "PICKED", "nutritionist", who);
-      if (t === "supply") setStatus(o, "GATHERING", "supply", who);
-      if (t === "qa") setStatus(o, "QA", "qa", who);
-      if (t === "delivery") {
-        o.staff.delivery = who;
-        setStatus(o, "PACKAGED");
-      }
-      save();
-      render();
-      toast("Order picked. The client can see your name.");
+    if (a === "emp-pick")
+      act(api("greenfed/work", { id, action: "pick" }), "Order picked. The client can see your name.");
+    if (a === "emp-step") act(api("greenfed/work", { id, action: b.dataset.s }), "Updated");
+    if (a === "supplied") act(api("greenfed/work", { id, action: "supplied" }), "Marked as supplied");
+    if (a === "pay-ok") {
+      if (!confirm("Only confirm once you've seen the money in GreenFed's bank account. Confirm?")) return;
+      act(api("greenfed/admin", { action: "confirm_payment", id }));
     }
-    if (a === "emp-step") {
-      const o = order(id),
-        s = b.dataset.s;
-      if (s === "start") setStatus(o, "IN_PROGRESS");
-      if (s === "deliver") {
-        o.days = DAYS.map((_, i) => genDay(i, o.meals, o.allergies));
-        setStatus(o, "DELIVERED");
-        S.emp.tasks++;
-      }
-      if (s === "gathered") {
-        o.gathered = true;
-        S.emp.tasks++;
-      }
-      if (s === "passed") {
-        o.passed = true;
-        S.emp.tasks++;
-      }
-      if (s === "out") setStatus(o, "EN_ROUTE");
-      if (s === "delivered") {
-        setStatus(o, "DELIVERED");
-        S.emp.tasks++;
-      }
-      save();
-      render();
-      toast(s === "deliver" ? "Plan delivered to the client's email and app" : "Updated");
-    }
-    if (a === "supplied") {
-      order(id).supplied = true;
-      S.emp.tasks++;
-      save();
-      render();
-      toast("Marked as supplied");
-    }
+    if (a === "pay-no") rejectModal(id);
     if (a === "pay-staff") {
-      if (S.emp.tasks) {
-        S.emp.paid.unshift({ amt: S.emp.tasks * RATE, tasks: S.emp.tasks, at: now() });
-        S.emp.tasks = 0;
-        save();
-        render();
-        toast("Staff paid. Counters reset.");
-      } else toast("Nothing due.");
+      if (!confirm(`Have you paid ${b.dataset.n} ${money(b.dataset.amt)}? This records it and resets their counter.`))
+        return;
+      act(api("greenfed/admin", { action: "pay_staff", user_id: +b.dataset.u }));
     }
-    if (a === "close-complaint") {
-      S.emp.complaints[+b.dataset.i].status = "RESOLVED";
-      save();
-      render();
+    if (a === "reset-meter") {
+      if (!confirm("Reset this counter for the new cycle?")) return;
+      act(api("greenfed/admin", { action: "reset_meter", user_id: +b.dataset.u }));
     }
-    if (a === "resolve") {
-      const c = S.conflicts[+b.dataset.i];
-      c.status = "RESOLVED";
-      c.resolution =
-        c.type === "Late delivery" ? "Next delivery waived for the customer." : "Items recalled and resupplied.";
-      save();
-      render();
-      toast("Conflict resolved");
-    }
+    if (a === "close-complaint") act(api("greenfed/admin", { action: "resolve_complaint", id: +id }), "Resolved");
+    if (a === "resolve") act(api("greenfed/admin", { action: "resolve_conflict", id: +id }), "Conflict resolved");
+    if (a === "item-edit") itemModal(id);
   });
   document.addEventListener("change", (e) => {
     const t = e.target,
       a = t.dataset.act;
     if (a === "role" && MYROLES.includes(t.value)) {
       S.session = { role: t.value };
-      save();
-      go(HOME[t.value]);
+      local("role", t.value);
+      S.cart = local("cart") || {};
+      sync().then(
+        () => go(HOME[t.value]),
+        (er) => toast(er.message),
+      );
     }
     if (a === "pref") {
       S.prefs[t.dataset.k] = t.checked;
-      save();
       document.body.classList.toggle("dark", !!S.prefs.dark);
-      toast("Saved");
+      api("greenfed/profile", { prefs: { [t.dataset.k]: t.checked } }).then(
+        () => toast("Saved"),
+        (er) => toast(er.message),
+      );
     }
   });
   document.addEventListener("input", (e) => {
@@ -1974,39 +1587,50 @@
     if (a === "gsearch") filt("[data-prods] .prod");
     if (a === "csearch") filt("[data-comms] .comm");
     if (a === "hsearch") filt("[data-recs] .rec");
-    if (t.matches("[data-otp]") && t.value) {
-      const n = t.nextElementSibling;
-      if (n) n.focus();
-    }
-    const pf = t.closest("[data-form=pay]");
-    if (pf) {
-      const n = pf.num.value.replace(/\D/g, "");
-      $("[data-cnum]").textContent = n ? n.replace(/(.{4})/g, "$1 ").trim() : "1234 5678 8797 6587";
-      $("[data-cname]").textContent = pf.cname.value || S.user.name;
-      $("[data-cexp]").textContent = pf.exp.value || "MM/YY";
+    const df = t.closest("[data-form=deliver]");
+    if (df) {
+      const mm = t.name.match(/^d(\d)m(\d)$/);
+      const dr = DRAFTS[df.dataset.id];
+      if (mm && dr) dr[+mm[1]][+mm[2]].dish = t.value;
     }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
-    if (e.key === "Backspace" && e.target.matches("[data-otp]") && !e.target.value) {
-      const p = e.target.previousElementSibling;
-      if (p) p.focus();
-    }
   });
 
   const vals = (f, n) => $$(`[name=${n}]:checked`, f).map((x) => x.value);
+  /** Sends a form to the server; shows the server's message on the form if it refuses. */
+  async function send(f, path, body, okMsg, after) {
+    const btn = $("button:not([type=button])", f);
+    if (btn) btn.disabled = true;
+    try {
+      const r = await api(path, body);
+      await sync();
+      closeModal();
+      if (after) after(r);
+      else render();
+      toast((r && r.message) || okMsg || "Saved");
+    } catch (er) {
+      err(f, er.message);
+      if (btn) btn.disabled = false;
+    }
+  }
   const FORMS = {
     setup(f) {
-      const me = S.members[0];
-      me.age = +f.age.value || me.age;
-      me.sex = f.sex.value;
-      me.allergies = vals(f, "al");
-      S.user.marital = f.marital.value;
-      S.user.phone = f.phone.value;
-      if (f.health.value.trim()) me.conditions = [f.health.value.trim()];
-      save();
-      toast("Welcome to GreenFed!");
-      go("#/home");
+      send(
+        f,
+        "greenfed/profile",
+        {
+          setup: true,
+          age: f.age.value,
+          sex: f.sex.value,
+          marital: f.marital.value,
+          allergies: vals(f, "al"),
+          conditions: f.health.value.trim() && !/^none$/i.test(f.health.value.trim()) ? [f.health.value.trim()] : [],
+        },
+        "Welcome to GreenFed!",
+        () => go("#/home"),
+      );
     },
     plan(f) {
       const members = vals(f, "mem"),
@@ -2024,236 +1648,182 @@
         info: f.info.value.trim(),
         price: planPrice(members.length, weeks),
       };
-      save();
       go("#/plans/review");
     },
-    pay(f) {
-      const n = f.num.value.replace(/\D/g, "");
-      if (n.length !== 16) return err(f, "Card numbers have 16 digits.");
-      if (!f.cname.value.trim()) return err(f, "Enter the name on the card.");
-      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(f.exp.value)) return err(f, "Use MM/YY for the expiry date.");
-      if (!/^\d{3,4}$/.test(f.cvv.value)) return err(f, "Enter the 3 or 4-digit CVV.");
-      const d = S.draft,
-        t = now();
-      S.cards = [{ last4: n.slice(-4), name: f.cname.value.trim(), exp: f.exp.value }];
-      let o;
-      if (d.kind === "plan")
-        o = {
-          kind: "plan",
-          id: uid("o"),
-          name: d.name,
-          members: d.members,
-          weeks: d.weeks,
-          meals: d.meals,
-          allergies: d.allergies,
-          info: d.info,
-          price: d.price,
-          status: "PAID",
-          staff: {},
-          created: t,
-          history: [["PAID", t]],
-          review: null,
-        };
-      else {
-        o = {
-          kind: "grocery",
-          id: uid("o"),
-          items: d.items,
-          total: d.total,
-          address: d.address,
-          slot: d.slot,
-          weekly: d.weekly,
-          status: "PAID",
-          staff: {},
-          created: t,
-          reviews: {},
-          history: [["PAID", t]],
-          km: 7,
-          eta: "1 hr",
-        };
-        S.cart = {};
-      }
-      S.orders.unshift(o);
-      note(
-        d.kind === "plan" ? "Meal Plan" : "Grocery",
-        d.kind === "plan" ? "Your payment for meal plan confirmed" : "Your grocery payment is confirmed",
-        `Hi ${S.user.name}, your payment of ${money(d.kind === "plan" ? d.price : d.total)} has been confirmed.`,
-        "#/orders/" + o.id,
+    paid(f) {
+      if (f.sender.value.trim().length < 2) return err(f, "Enter the name on the account you paid from.");
+      if (f.bank.value.trim().length < 2) return err(f, "Enter the bank you paid from.");
+      const id = f.dataset.id;
+      send(
+        f,
+        "greenfed/order/act",
+        { id, action: "paid", sender: f.sender.value.trim(), bank: f.bank.value.trim() },
+        "",
+        () => go("#/success?id=" + id),
       );
-      S.draft = null;
-      save();
-      go("#/success?id=" + o.id);
     },
     checkout(f) {
       if (!f.address.value.trim()) return err(f, "Enter a delivery address.");
-      S.draft = {
-        kind: "grocery",
-        items: Object.entries(S.cart),
-        total: cartTotal(),
-        address: f.address.value.trim(),
-        slot: f.slot.value,
-        weekly: f.weekly.checked,
-      };
-      save();
-      go("#/pay");
+      send(
+        f,
+        "greenfed/order",
+        {
+          kind: "grocery",
+          items: Object.entries(S.cart),
+          address: f.address.value.trim(),
+          slot: f.slot.value,
+          weekly: f.weekly.checked,
+        },
+        "Order placed",
+        (r) => {
+          S.cart = {};
+          save();
+          go("#/pay?id=" + r.id);
+        },
+      );
     },
     member(f) {
       if (!f.name.value.trim()) return err(f, "Enter a name.");
       if (!(+f.age.value >= 0) || f.age.value === "") return err(f, "Enter an age.");
-      const rel = f.querySelector("[name=rel]:checked").value;
-      S.members.push({
-        id: uid("m"),
+      send(f, "greenfed/member", {
         name: f.name.value.trim(),
-        rel,
+        rel: f.querySelector("[name=rel]:checked").value,
         age: +f.age.value,
         sex: f.sex.value,
         allergies: vals(f, "al"),
-        conditions: f.cond.value.trim() ? [f.cond.value.trim()] : [],
+        conditions: f.cond.value.trim() && !/^none$/i.test(f.cond.value.trim()) ? [f.cond.value.trim()] : [],
       });
-      save();
-      render();
-      toast("Family member added");
     },
     rec(f) {
       if (!f.name.value.trim()) return err(f, "Enter a name for the record.");
-      S.records.unshift({
-        id: uid("h"),
+      send(f, "greenfed/record", {
         type: f.type.value,
         name: f.name.value.trim(),
         member: f.member.value,
-        date: now(),
         sev: f.sev.value,
-        by: f.by.value.trim() || "Self-reported",
+        by: f.by.value.trim(),
       });
-      if (f.type.value === "Allergy") {
-        const m = S.members.find((x) => x.id === f.member.value);
-        const match = ALLERGENS.find((a) => f.name.value.toLowerCase().includes(a.toLowerCase().replace(/s$/, "")));
-        if (m && match && !m.allergies.includes(match)) m.allergies.push(match);
-      }
-      save();
-      closeModal();
-      render();
-      toast("Record added");
     },
     profile(f) {
-      Object.assign(S.user, {
-        name: f.name.value,
-        address: f.address.value,
-        occupation: f.occupation.value,
-        phone: f.phone.value,
-        marital: f.marital.value,
-      });
-      Object.assign(S.members[0], { name: f.name.value, sex: f.sex.value, age: +f.age.value });
-      save();
-      render();
-      toast("Profile updated");
+      send(
+        f,
+        "greenfed/profile",
+        {
+          sex: f.sex.value,
+          age: f.age.value,
+          marital: f.marital.value,
+          address: f.address.value,
+          occupation: f.occupation.value,
+        },
+        "Profile updated",
+      );
     },
     healthst(f) {
-      Object.assign(S.user, {
-        height: +f.height.value,
-        weight: +f.weight.value,
-        goal: f.goal.value,
-        goalNote: f.goalNote.value,
-      });
-      S.members[0].allergies = vals(f, "al");
-      save();
-      render();
-      toast("Health status saved");
+      send(
+        f,
+        "greenfed/profile",
+        {
+          height: f.height.value,
+          weight: f.weight.value,
+          goal: f.goal.value,
+          goalNote: f.goalNote.value,
+          allergies: vals(f, "al"),
+        },
+        "Health status saved",
+      );
     },
     comm(f) {
       if (f.name.value.trim().length < 3) return err(f, "Give your community a name.");
-      if (!f.desc.value.trim()) return err(f, "Describe what the community is about.");
-      const c = {
-        id: uid("c"),
-        name: f.name.value.trim(),
-        cat: f.cat.value,
-        desc: f.desc.value.trim(),
-        members: 1,
-        pub: f.querySelector("[name=pub]:checked").value === "1",
-        joined: true,
-        perms: f.querySelector("[name=perms]:checked").value === "anyone" ? "anyone" : "anyone",
-        last: "Community created",
-        lastAt: now(),
-        by: S.user.name,
-      };
-      S.communities.unshift(c);
-      save();
-      toast("Community created");
-      go("#/community/" + c.id);
+      if (f.desc.value.trim().length < 5) return err(f, "Describe what the community is about.");
+      send(
+        f,
+        "greenfed/community",
+        {
+          action: "create",
+          name: f.name.value.trim(),
+          cat: f.cat.value,
+          desc: f.desc.value.trim(),
+          pub: f.querySelector("[name=pub]:checked").value === "1",
+          perms: f.querySelector("[name=perms]:checked").value,
+        },
+        "Community created",
+        (r) => go("#/community/" + r.id),
+      );
     },
     post(f) {
       if (!f.title.value.trim() || !f.body.value.trim()) return err(f, "Add a topic and your post.");
-      S.posts.unshift({
-        id: uid("p"),
-        c: f.dataset.c,
-        by: S.user.name,
-        at: now(),
-        title: f.title.value.trim(),
-        body: f.body.value.trim(),
-        likes: 0,
-        liked: false,
-        replies: [],
-      });
-      const c = S.communities.find((x) => x.id === f.dataset.c);
-      c.last = f.title.value.trim();
-      c.lastAt = now();
-      save();
-      render();
-      toast("Posted");
+      send(
+        f,
+        "greenfed/post",
+        { community: f.dataset.c, title: f.title.value.trim(), body: f.body.value.trim() },
+        "Posted",
+      );
     },
     reply(f) {
       if (!f.body.value.trim()) return err(f, "Write your comment.");
-      const p = S.posts.find((x) => x.id === f.dataset.p);
-      const spec = f.dataset.as === "1";
-      const r = {
-        id: uid("r"),
-        by: spec ? EMP.health.who : S.user.name,
-        role: spec ? "Health specialist" : "",
-        at: now(),
+      send(f, "greenfed/post", {
+        kind: "reply",
+        post: f.dataset.p,
+        parent: f.dataset.r,
         body: f.body.value.trim(),
-        replies: [],
-      };
-      const find = (rs) => {
-        for (const x of rs) {
-          if (x.id === f.dataset.r) return x;
-          const y = find(x.replies);
-          if (y) return y;
-        }
-        return null;
-      };
-      (f.dataset.r ? find(p.replies).replies : p.replies).push(r);
-      if (spec) S.emp.tasks++;
-      save();
-      closeModal();
-      render();
-      toast("Reply posted");
+        specialist: f.dataset.as === "1",
+      });
     },
     review(f) {
-      order(f.dataset.id).review = { stars: +f.stars.value, note: f.note.value.trim() };
-      save();
-      closeModal();
-      render();
-      toast("Thanks for your review");
+      send(f, "greenfed/order/act", {
+        id: f.dataset.id,
+        action: "review",
+        stars: +f.stars.value,
+        note: f.note.value.trim(),
+      });
     },
     salary(f) {
       if (!/^\d{10}$/.test(f.acct.value)) return err(f, "Account numbers have 10 digits.");
-      S.emp.bank = { bank: f.bank.value, acct: f.acct.value, name: f.name.value.trim() };
-      save();
-      render();
-      toast("Salary details saved");
+      send(f, "greenfed/salary", { bank: f.bank.value, acct: f.acct.value, name: f.name.value.trim() });
     },
     complaint(f) {
       if (!f.body.value.trim()) return err(f, "Add some details.");
-      S.emp.complaints.unshift({
-        type: f.type.value,
-        body: f.body.value.trim(),
-        by: EMP[S.emp.type].who,
-        at: now(),
-        status: "OPEN",
+      send(f, "greenfed/complaint", { type: f.type.value, body: f.body.value.trim() });
+    },
+    deliver(f) {
+      const o = order(f.dataset.id);
+      const dr = DRAFTS[f.dataset.id];
+      if (!o || !dr) return;
+      if (dr.some((day) => day.some((m) => !m.dish.trim()))) return err(f, "Fill in every meal before delivering.");
+      if (!confirm("Deliver this 7-day plan to the client now?")) return;
+      send(f, "greenfed/work", { id: o.id, action: "deliver", days: dr }, "Plan delivered to the client", () => {
+        delete DRAFTS[o.id];
+        render();
       });
-      save();
-      render();
-      toast("Complaint logged");
+    },
+    settings(f) {
+      if (!/^\d{10}$/.test(f.account_number.value.trim())) return err(f, "Account numbers have 10 digits.");
+      send(f, "greenfed/admin", {
+        action: "settings",
+        plan_price: +f.plan_price.value,
+        nutritionist_rate: +f.nutritionist_rate.value,
+        bank_name: f.bank_name.value.trim(),
+        account_name: f.account_name.value.trim(),
+        account_number: f.account_number.value.trim(),
+      });
+    },
+    item(f) {
+      send(f, "greenfed/admin", {
+        action: "item",
+        slug: f.dataset.id,
+        name: f.name.value.trim(),
+        cat: f.cat.value,
+        price: +f.price.value,
+        unit: f.unit.value.trim(),
+        discount: +f.discount.value,
+        allergens: vals(f, "al"),
+        popular: f.popular.checked,
+        new: f.new.checked,
+        active: f.active.checked,
+      });
+    },
+    reject(f) {
+      send(f, "greenfed/admin", { action: "reject_payment", id: f.dataset.id, note: f.note.value.trim() });
     },
   };
   document.addEventListener("submit", (e) => {
@@ -2282,32 +1852,30 @@
     MYROLES = RH.rolesIn(ACCOUNT, "greenfed")
       .map((r) => ROLEMAP[r])
       .filter(Boolean);
+    if (RH.isAdminFor && RH.isAdminFor(ACCOUNT, "greenfed") && !MYROLES.includes("admin")) MYROLES.push("admin");
     if (!MYROLES.length) {
       await RH.guard("greenfed", ["customer", "employee"]); // explains pending / not added yet
       return;
     }
-    loadFor(ACCOUNT);
-    S.user.name = ACCOUNT.full_name;
-    S.user.email = ACCOUNT.email;
-    if (ACCOUNT.phone) S.user.phone = ACCOUNT.phone;
-    S.members[0].name = ACCOUNT.full_name;
-    const emp = ACCOUNT.memberships.find(
-      (m) => m.product === "greenfed" && m.role === "employee" && m.status === "approved",
-    );
-    if (emp && EMPMAP[emp.details.employee_type]) {
-      S.emp.type = EMPMAP[emp.details.employee_type];
-      EMP[S.emp.type].who = ACCOUNT.full_name;
+    const last = local("role");
+    S.session = { role: MYROLES.includes(last) ? last : MYROLES[0] };
+    S.cart = local("cart") || {};
+    try {
+      await sync();
+    } catch (e) {
+      view().innerHTML = authShell(
+        `<h1>Can't load GreenFed</h1><p>${esc(e.message)}</p><a class="btn btn--block" href="">Try again</a>`,
+      );
+      return;
     }
-    const keep = S.session && MYROLES.includes(S.session.role) ? S.session.role : MYROLES[0];
-    S.session = { role: keep };
-    save();
+    local("role", role());
     if (S.prefs.dark) document.body.classList.add("dark");
     let after = null;
     try {
       after = sessionStorage.getItem("gf-after");
       sessionStorage.removeItem("gf-after");
     } catch (e) {}
-    if (FRESH && keep === "user") return go("#/setup");
+    if (role() === "user" && !S.user.setupDone) return go("#/setup");
     if (after && !/^#\/(welcome|start|login|signup|setup)/.test(after)) return go(after);
     render();
   }

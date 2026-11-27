@@ -1931,6 +1931,14 @@ body.dark .st--PAID {
   background: var(--g-soft);
   color: #15803d;
 }
+.st--AWAITING_PAYMENT {
+  background: var(--o-soft);
+  color: #b45309;
+}
+.st--PAYMENT_SENT {
+  background: #e0f2fe;
+  color: #0369a1;
+}
 .gf-head {
   display: none;
 }
@@ -2810,14 +2818,6 @@ body.dark .sumbar span {
 }
 
 /* Notice while ordering is not yet connected to the server */
-.preview-note {
-  margin: 0 0 16px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--o-soft);
-  color: #78350f;
-  font-size: 13px;
-}
 .side__foot .link {
   display: inline-block;
   margin: 6px 4px 10px;
