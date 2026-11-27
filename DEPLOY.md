@@ -114,6 +114,74 @@ taps "I've sent the money", the store checks its account and taps **Payment rece
 order moves on (processing → ready → shipped → delivered). AiPay does not hold money and card
 payment is shown as "coming soon" until a payment provider (e.g. Paystack) is connected.
 
+## Updating a site that is already live: AiMove on the server (November 2026)
+
+AiMove now keeps deliveries, the escrow wallet, rider earnings, messages and notifications in
+your database instead of on each person's device. Add the new tables once:
+
+1. cPanel → **phpMyAdmin** → your Rehohub database → **SQL** tab.
+2. Paste everything from `database/migrations-002-aimove.sql` and press **Go**. It only adds
+   tables whose names start with `aimove_`.
+3. Upload the new files as usual (Step 1), including `api/lib/aimove.php`.
+
+Anything people did in AiMove before this update was only saved in their own browser, so it
+does not carry over: everyone starts with an empty wallet and no deliveries.
+
+**How money moves in AiMove** (you run this from AiMove → **Top-ups & payouts**, signed in as
+an administrator):
+
+1. A customer tops up their wallet by transferring to **Rehohub Ltd, Moniepoint, 810512715**
+   and telling AiMove the amount and the account they paid from. You get an email.
+2. Check the Moniepoint account, then press **Confirm received** (or **Not received**). Only
+   then does the money appear in their wallet.
+3. Booking a delivery moves the price from their wallet into **escrow**. The server works out
+   every price; nobody can change it from their browser.
+4. When the rider enters the recipient's 4-digit PIN, 85% of the delivery fare goes to the
+   rider's earnings automatically. The rest (15% plus the booking fee) is AiMove's.
+   Cancelling before pickup refunds the customer's wallet.
+5. A rider asks to withdraw their earnings to their bank. You get an email. Transfer the money
+   to them, then press **Mark paid** (or **Return** to put it back in their earnings).
+
+Riders must be approved in **Admin console → Applications** before they can take jobs.
+
+## Google Maps for AiMove (optional, recommended)
+
+Without keys, AiMove estimates distances from the addresses and shows an illustrated map. With
+Google Maps keys, addresses suggest themselves as people type, prices use the real road
+distance, and customers and operations follow the rider live on a map.
+
+1. Go to **console.cloud.google.com** and sign in with the Google account Rehohub uses.
+   Create a project called _Rehohub_.
+2. **Billing**: link a billing account. Google Maps needs one, but each Maps service includes a
+   free monthly allowance; check Google's current pricing page. Then open **Billing → Budgets &
+   alerts** and set a monthly budget (for example ₦20,000) so you get an email before costs grow.
+3. **APIs & Services → Library**: turn on **Maps JavaScript API**, **Places API (New)** and
+   **Routes API**.
+4. **APIs & Services → Credentials → Create credentials → API key**. Make two keys:
+   - **Browser key**: under _Application restrictions_ choose **Websites** and add
+     `https://www.rehohub.com/*` and `https://rehohub.com/*`. Under _API restrictions_
+     allow only **Maps JavaScript API** and **Places API (New)**.
+   - **Server key**: under _Application restrictions_ choose **IP addresses** and add your
+     hosting server's IP (cPanel home page → right-hand column → _Shared IP Address_). Under
+     _API restrictions_ allow only **Routes API**.
+5. Open your private settings file (`rehohub-config.php`, above `public_html`) and add:
+
+   ```php
+   'google_maps' => [
+       'server_key'  => 'PASTE-THE-SERVER-KEY',
+       'browser_key' => 'PASTE-THE-BROWSER-KEY',
+   ],
+   ```
+
+   (Put it before the last `];`, like the other settings. `api/config.sample.php` shows where.)
+
+6. Open AiMove → **Send a package** and start typing an address: suggestions should appear.
+
+If a key is wrong, AiMove quietly goes back to estimated distances and the illustrated map, so
+nothing breaks. Riders share their location only while they are online in AiMove, only if they
+allow it in their browser and in **Profile → Notification settings**, and it stops when they go
+offline.
+
 ---
 
 ## Who can do what
@@ -151,11 +219,10 @@ payment is shown as "coming soon" until a payment provider (e.g. Paystack) is co
 
 ## What is still front-end only (next phases)
 
-- **Product data**: GreenFed meal plans, orders and records, AiMove deliveries and wallet, and
-  AiRise course progress are still saved **per account on the person's device** (AiPay is
-  already in the database). The apps say so
-  with a "Preview" note. Moving each of these into the database is the next phase, one product
-  at a time.
+- **Product data**: GreenFed meal plans, orders and records, and AiRise course progress are
+  still saved **per account on the person's device** (AiPay and AiMove are already in the
+  database). The apps say so with a "Preview" note. Moving each into the database is the next
+  phase, one product at a time.
 - **Payments** (Paystack or Flutterwave), **document uploads** (ID, licence, CAC certificate) for
   approvals, **two-factor sign-in for administrators**, and the **terms and privacy policy pages**
   (the sign-up form links to the contact section for now).

@@ -1594,6 +1594,7 @@ body.dark .earn {
   color: var(--p);
 }
 .tbl {
+  position: relative;
   overflow-x: auto;
   padding: 6px 16px;
 }
@@ -1886,4 +1887,83 @@ body.dark .earn {
   display: block;
   margin-top: 4px;
   opacity: 0.85;
+}
+
+/* ---------- live map (Google Maps) and address suggestions ---------- */
+.map--g .gmap {
+  position: absolute;
+  inset: 0;
+}
+.map--g {
+  min-height: 260px;
+}
+.map__open {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--p);
+  text-decoration: none;
+}
+.map__open .i {
+  width: 16px;
+  height: 16px;
+}
+.ac-wrap {
+  position: relative;
+}
+.ac {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin: 4px 0 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.ac button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.ac button:hover,
+.ac button:focus-visible {
+  background: var(--bg);
+}
+.ac .i {
+  width: 16px;
+  height: 16px;
+  color: var(--p);
+  flex: none;
+}
+
+.list--wrap > li {
+  flex-wrap: wrap;
+}
+.list--wrap > li .grow {
+  min-width: 0;
+  flex-basis: 180px;
 }

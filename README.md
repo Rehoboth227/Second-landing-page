@@ -20,7 +20,11 @@ products/aipay.html            AiPay web app (Ai Pay Project Figma + prototype v
                                fee, under review / live, dashboard, sales report (CSV), market place,
                                profile, settings, notifications. Data: api/lib/aipay.php (aipay_* tables)
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
-products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send
+products/aimove.html           AiMove web app (customers, riders, operations); routes like aimove.html#/send.
+                               Data on the server: api/lib/aimove.php (aimove_* tables): deliveries,
+                               escrow wallet, rider earnings and payouts, messages, notifications.
+                               Optional Google Maps (keys in the private config): address suggestions,
+                               road distances, live rider location
 services/rheti/                Rheti service site (the employability website, moved here from AiRise):
   index.html                     overview (services/rheti.html forwards here)
   talent.html, employers.html    the two sides of the platform

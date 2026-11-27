@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/aipay.php';
+require __DIR__ . '/lib/aimove.php';
 
 security_headers();
 set_exception_handler(function (Throwable $e) {
@@ -95,6 +96,22 @@ $routes = [
     'POST aipay/sales' => 'r_aipay_sale_update',
     'GET aipay/dashboard' => 'r_aipay_dashboard',
     'POST admin/aipay/fee' => 'r_aipay_admin_fee',
+    // AiMove (api/lib/aimove.php)
+    'GET aimove/config' => 'r_am_config',
+    'GET aimove/state' => 'r_am_state',
+    'POST aimove/quote' => 'r_am_quote',
+    'POST aimove/deliveries' => 'r_am_book',
+    'POST aimove/delivery' => 'r_am_delivery',
+    'GET aimove/track' => 'r_am_track',
+    'POST aimove/topup' => 'r_am_topup',
+    'POST aimove/payout' => 'r_am_payout',
+    'POST aimove/review' => 'r_am_review',
+    'POST aimove/profile' => 'r_am_profile',
+    'POST aimove/online' => 'r_am_online',
+    'POST aimove/location' => 'r_am_location',
+    'GET aimove/messages' => 'r_am_messages',
+    'POST aimove/messages' => 'r_am_send',
+    'POST aimove/notes' => 'r_am_notes',
     'GET setup/status' => 'r_setup_status',
     'POST setup' => 'r_setup',
 ];

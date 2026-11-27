@@ -42,6 +42,16 @@ return [
         'smtp_pass'  => 'PUT-THE-MAILBOX-PASSWORD-HERE',
     ],
 
+    // Google Maps for AiMove (optional). Leave both '' to use estimated distances and the
+    // illustrated map. See DEPLOY.md, "Google Maps for AiMove", for how to create the two keys.
+    // server_key: used only by this server to measure road distances (Routes API).
+    // browser_key: used by visitors' browsers for the maps and address suggestions;
+    //              restrict it to your website address in Google Cloud.
+    'google_maps' => [
+        'server_key'  => '',
+        'browser_key' => '',
+    ],
+
     // Where to send "new application waiting for approval" alerts. Leave '' to skip.
     'admin_notify_email' => 'info@rehohub.com',
 
