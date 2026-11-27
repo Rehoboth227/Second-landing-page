@@ -422,6 +422,49 @@
     });
   }
 
+  // ------------------------------------------------------------ a seller's own shop (their link)
+  const slug = (s) =>
+    String(s || "store")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "store";
+  const shopHash = (id, name) => `#/s/${id}-${slug(name)}`;
+  const shopUrl = (id, name) => location.origin + location.pathname + shopHash(id, name);
+  async function viewShop(id) {
+    shopShell(
+      "shop",
+      `<div class="loading-inline"><div class="spin" role="status" aria-label="Loading the store"></div></div>`,
+    );
+    let s, r;
+    try {
+      [s, r] = await Promise.all([GET("aipay/storefront?id=" + id), GET("aipay/products?store=" + id)]);
+      s = s.store;
+    } catch (e) {
+      $("#main").innerHTML =
+        `<div class="card empty">${ic("bag")}<p style="margin:0">${esc(e.message)}</p><a class="btn btn--sm" href="#/store">Go to the AiPay Store</a></div>`;
+      return;
+    }
+    document.title = s.business_name + " · AiPay";
+    $("#main").innerHTML = `<section class="card shopfront">
+        <div class="shopfront__logo">${s.logo_id ? `<img src="${esc(img(s.logo_id))}" alt="" />` : esc(initials(s.business_name))}</div>
+        <div class="shopfront__body"><h1>${esc(s.business_name)}</h1>
+          <p class="hint" style="margin:0">${esc(s.category || "")}${s.city ? " · " + esc([s.city, s.state].filter(Boolean).join(", ")) : ""} · ${s.products} product${s.products === 1 ? "" : "s"}</p>
+          ${s.about ? `<p style="margin:8px 0 0">${esc(s.about)}</p>` : ""}
+          <p class="hint" style="margin:8px 0 0">${s.phone ? `<a href="tel:${esc(s.phone)}">${esc(s.phone)}</a>` : ""}${s.phone && s.email ? " · " : ""}${s.email ? `<a href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : ""}</p></div>
+        <div class="shopfront__acts"><button class="btn btn--line btn--sm" type="button" id="shareShop">${ic("link")}Share this store</button><a class="btn btn--sm" href="#/store">All AiPay stores</a></div>
+      </section>
+      ${
+        r.items.length
+          ? `<div class="pgrid">${r.items.map(productCard).join("")}</div>`
+          : `<div class="card empty">${ic("bag")}<p style="margin:0">This store has no products yet.</p></div>`
+      }`;
+    $("#shareShop").addEventListener("click", () => copy(shopUrl(s.id, s.business_name)));
+    $$("[data-product]").forEach((el) =>
+      el.addEventListener("click", (e) => productModal(+el.dataset.product, !!e.target.closest("[data-quick]"))),
+    );
+  }
+
   // ------------------------------------------------------------ buyer: store
   const SQ = { q: "", category: "", city: store.get("aipay-city", ""), page: 1 };
   const CAT_ICON = {
@@ -485,7 +528,7 @@
   }
   const productCard = (p) =>
     `<article class="pcard"><button type="button" class="pcard__img" data-product="${p.id}" aria-label="View ${esc(p.name)}">${p.image_id ? `<img src="${esc(img(p.image_id))}" alt="" loading="lazy" />` : ic("bag")}</button>
-      <div class="pcard__body"><h3>${esc(p.name)}</h3><small>${p.digital ? `<b>${esc(p.format)} download</b> · ` : ""}${esc(p.store)}${p.city ? " · " + esc(p.city) : ""}</small>
+      <div class="pcard__body"><h3>${esc(p.name)}</h3><small>${p.digital ? `<b>${esc(p.format)} download</b> · ` : ""}<a href="${shopHash(p.merchant_id, p.store)}" class="pcard__store">${esc(p.store)}</a>${p.city ? " · " + esc(p.city) : ""}</small>
       <div class="pcard__row"><b>${ngn(p.price)}</b>${p.stock > 0 ? `<button type="button" class="plus" data-product="${p.id}" data-quick aria-label="Add ${esc(p.name)} to cart">${ic("plus")}</button>` : `<span class="soldout">Sold out</span>`}</div></div></article>`;
 
   function locationModal() {
@@ -648,6 +691,9 @@
   }
   document.addEventListener("click", (e) => {
     if (e.target.closest("[data-goshop]") && !location.hash.startsWith("#/store")) go("#/store");
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-copy-shop]") && ME && ME.store) copy(shopUrl(SESSION.user.id, ME.store.business_name));
   });
 
   function deliveryModal() {
@@ -1001,7 +1047,7 @@
       <div class="scrim" data-menu></div>
       <aside class="side" aria-label="AiPay store menu">
         <a class="logo" href="#/dashboard">${logo()}</a>
-        ${s ? `<div class="side__domain">${ic("link")}<span>${esc(s.email || s.business_name)}</span></div>` : ""}
+        ${s ? `<div class="side__domain">${ic("link")}<a href="${shopHash(u.id, s.business_name)}" title="Your store's own page: share this link with buyers">${esc(shopUrl(u.id, s.business_name).replace(/^https?:\/\//, ""))}</a><button type="button" class="copy" data-copy-shop aria-label="Copy your store link">${ic("copy")}</button></div>` : ""}
         <div class="side__label">Menu</div>
         <nav class="nav">${nav([
           ["dashboard", "Dashboard", "home"],
@@ -1791,6 +1837,11 @@
     const user = SESSION && SESSION.user;
     document.title = (page ? page[0].toUpperCase() + page.slice(1) + " · " : "") + "AiPay";
     try {
+      if (page === "s" && a1) {
+        if (user && !ME) await refreshMe();
+        VIEW = "shop";
+        return await viewShop(parseInt(a1, 10) || 0);
+      }
       if (!user) {
         if (page === "store") {
           await viewStore();

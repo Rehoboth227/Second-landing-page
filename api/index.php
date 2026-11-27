@@ -16,6 +16,8 @@ require __DIR__ . '/lib/aipay.php';
 require __DIR__ . '/lib/aimove.php';
 require __DIR__ . '/lib/greenfed.php';
 require __DIR__ . '/lib/airise.php';
+require __DIR__ . '/lib/airise_hub.php';
+require __DIR__ . '/lib/admin_payments.php';
 
 security_headers();
 set_exception_handler(function (Throwable $e) {
@@ -70,6 +72,7 @@ $routes = [
     'POST invites/check' => 'r_invite_check',
     'POST invites/accept' => 'r_invite_accept',
     'GET admin/summary' => 'r_admin_summary',
+    'GET admin/payments' => 'r_admin_payments',
     'GET admin/memberships' => 'r_admin_memberships',
     'POST admin/memberships/decide' => 'r_admin_decide',
     'GET admin/users' => 'r_admin_users',
@@ -85,6 +88,7 @@ $routes = [
     'POST aipay/notes' => 'r_aipay_notes_update',
     'GET aipay/products' => 'r_aipay_products',
     'GET aipay/product' => 'r_aipay_product',
+    'GET aipay/storefront' => 'r_aipay_storefront',
     'GET aipay/image' => 'r_aipay_image',
     'POST aipay/image' => 'r_aipay_image_upload',
     'POST aipay/store' => 'r_aipay_store_save',
@@ -117,6 +121,17 @@ $routes = [
     'GET admin/airise/courses' => 'r_air_admin_courses',
     'POST admin/airise/review' => 'r_air_admin_review',
     'GET airise/portfolio' => 'r_air_portfolio',
+    'GET airise/assessments' => 'r_air_assessments',
+    'GET airise/classes' => 'r_air_classes',
+    'POST airise/classes' => 'r_air_classes_act',
+    'GET airise/cohorts' => 'r_air_cohorts',
+    'POST airise/cohorts' => 'r_air_cohorts_act',
+    'GET airise/opportunities' => 'r_air_opportunities',
+    'POST airise/apply' => 'r_air_apply',
+    'GET airise/jobs' => 'r_air_jobs',
+    'POST airise/jobs' => 'r_air_jobs_act',
+    'GET admin/airise/opportunities' => 'r_air_admin_opps',
+    'POST admin/airise/opportunity' => 'r_air_admin_opp',
     'POST airise/portfolio' => 'r_air_portfolio_save',
     'POST airise/portfolio/doc' => 'r_air_portfolio_doc',
     'GET airise/talent' => 'r_air_talent',

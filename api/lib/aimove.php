@@ -673,7 +673,7 @@ function r_am_topup(): never
     $to = (string) (config()['admin_notify_email'] ?? '');
     if ($to !== '' && valid_email($to)) {
         send_mail($to, 'AiMove top-up to confirm', "{$u['full_name']} ({$u['email']}) says they transferred NGN " . number_format($amt) .
-            " to " . AM_COLLECT['bank_name'] . ' ' . AM_COLLECT['account_number'] . ".\nFrom: $sender ($bank)\n\nConfirm it in AiMove → Operations: " . site_url('products/aimove.html#/ops'));
+            " to " . AM_COLLECT['bank_name'] . ' ' . AM_COLLECT['account_number'] . ".\nFrom: $sender ($bank)\n\nConfirm it in the admin console → Payments to confirm: " . site_url('account/admin.html#payments'));
     }
     ok(['message' => 'Thanks. Your wallet is topped up once we confirm the transfer.']);
 }
@@ -702,7 +702,7 @@ function r_am_payout(): never
     $pdo->commit();
     $mail = (string) (config()['admin_notify_email'] ?? '');
     if ($mail !== '' && valid_email($mail)) {
-        send_mail($mail, 'AiMove rider payout to send', "{$u['full_name']} asked to withdraw NGN " . number_format($amt) . " to {$p['bank_name']} {$p['bank_acct']} ({$p['bank_holder']}).\n\nPay it, then mark it paid in AiMove → Operations: " . site_url('products/aimove.html#/ops'));
+        send_mail($mail, 'AiMove rider payout to send', "{$u['full_name']} asked to withdraw NGN " . number_format($amt) . " to {$p['bank_name']} {$p['bank_acct']} ({$p['bank_holder']}).\n\nPay it, then mark it paid in the admin console → Payments to confirm: " . site_url('account/admin.html#payments'));
     }
     ok(['message' => 'NGN ' . number_format($amt) . ' requested. It is paid to your bank once operations sends it.']);
 }

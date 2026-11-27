@@ -21,6 +21,12 @@ products/aipay.html            AiPay web app (Ai Pay Project Figma + prototype v
                                profile, settings, notifications. Data: api/lib/aipay.php (aipay_* tables)
 products/airise/portfolio.html Learner portfolio (profile, document folders, score, suggestions)
 products/airise/talent.html    Employer talent search (approved AiRise employers)
+products/airise/courses.html, assessments.html, certificates.html, opportunities.html, classes.html
+                               Learner pages (assets/js/airise-hub.js): catalogue, assessments, certificates,
+                               SIWES / internships / jobs, classes and notifications
+products/airise/cohorts.html   Trainer cohorts: join codes, scheduled live classes, announcements
+products/airise/jobs.html, verify.html
+                               Employer pages: post opportunities and see applicants; check certificate numbers
 products/greenfed.html         GreenFed web app (customers, staff, admin); routes like greenfed.html#/plans
                                Data on the server: api/lib/greenfed.php (gf_* tables): households, records,
                                plans, groceries, staff work, communities. Prices and bank set by admins
@@ -115,6 +121,11 @@ Everything is stored on the server (`api/lib/airise.php`, `airise_*` tables from
 - **Administrators** review submitted courses in the admin console (**AiRise courses**), see the quiz answers,
   preview the course, and publish it or send it back with a note (the trainer is emailed). Quizzes on trainer
   courses are marked by the server; learners never receive the answers.
+
+## AiPay seller shop links
+
+Every live seller has their own page, `aipay.html#/s/<id>-<store-name>`, listing only their products. The
+link is shown (with a copy button) under the logo in the seller's menu; store names on product cards link to it.
 
 ## AiPay digital products
 

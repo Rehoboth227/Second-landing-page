@@ -260,6 +260,9 @@
     }
     f.addEventListener("submit", (e) => (e.preventDefault(), search()));
     f.career.addEventListener("change", search);
+    // From an applicant on the Opportunities page: open that learner's portfolio.
+    const want = location.hash.match(/learner=(\d+)/);
+    if (want) open(+want[1]);
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-open]");
       if (b) open(+b.dataset.open);

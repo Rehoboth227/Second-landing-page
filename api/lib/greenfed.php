@@ -503,7 +503,7 @@ function r_gf_order_act(): never
         if ($to !== '' && valid_email($to)) {
             $b = gf_settings()['bank'];
             send_mail($to, 'GreenFed payment to confirm', "{$u['full_name']} ({$u['email']}) says they transferred NGN " . number_format((int) $o['total']) .
-                " for a GreenFed " . ($o['kind'] === 'plan' ? 'meal plan' : 'grocery order') . ".\nFrom: $sender ($bank)\nTo: {$b['bank_name']} {$b['account_number']}\n\nConfirm it in GreenFed → Overview: " . site_url('products/greenfed.html#/admin'));
+                " for a GreenFed " . ($o['kind'] === 'plan' ? 'meal plan' : 'grocery order') . ".\nFrom: $sender ($bank)\nTo: {$b['bank_name']} {$b['account_number']}\n\nConfirm it in the admin console → Payments to confirm: " . site_url('account/admin.html#payments'));
         }
         $msg = 'Thanks. We are confirming your payment.';
     } elseif ($action === 'cancel') {

@@ -913,11 +913,29 @@
         box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
       }
     }
+    async function loadOpps() {
+      const box = $("#courses");
+      try {
+        const r = await RH.call("admin/airise/opportunities");
+        box.innerHTML =
+          r.items
+            .map(
+              (o) =>
+                `<article class="app-item"><div class="app-item__head"><div><b>${esc(o.title)}</b> · <span class="mute">${esc(o.kindLabel)} at ${esc(o.company)}</span><br><small>Posted by ${esc(o.employer)} (${esc(o.email)}) · ${esc(o.location)} · ${o.applicants} applicant${o.applicants === 1 ? "" : "s"} · ${fmt(o.at)}</small></div><span class="st st--${o.status === "open" ? "approved" : "pending"}">${esc(o.status)}</span></div>
+                <p style="margin:6px 0;white-space:pre-line">${esc(o.description.slice(0, 400))}${o.description.length > 400 ? "…" : ""}</p>
+                <div class="row"><button class="btn btn--sm btn--bad" data-opp-rm="${o.id}">Remove</button></div></article>`,
+            )
+            .join("") || `<p class="mute">No opportunities posted.</p>`;
+      } catch (e) {
+        box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
+      }
+    }
     async function loadCourses() {
       const box = $("#courses");
       box.innerHTML = `<p class="mute">Loading…</p>`;
       const sv = $("#c-status").value;
       if (sv.startsWith("docs")) return loadDocs(sv === "docs" ? "pending" : "verified");
+      if (sv === "opps") return loadOpps();
       try {
         const r = await RH.call("admin/airise/courses?status=" + $("#c-status").value);
         const link = (f) =>
@@ -973,6 +991,19 @@
     }
     $("#c-status").onchange = () => (courseMsg(""), loadCourses());
     $("#courses").addEventListener("click", async (e) => {
+      const rm = e.target.closest("[data-opp-rm]");
+      if (rm) {
+        if (!confirm("Remove this opportunity? Learners will no longer see it.")) return;
+        try {
+          courseMsg(
+            (await RH.call("admin/airise/opportunity", { method: "POST", body: { id: +rm.dataset.oppRm } })).message,
+          );
+          loadCourses();
+        } catch (er) {
+          courseMsg(er.message, true);
+        }
+        return;
+      }
       const dd = e.target.closest("[data-dd]");
       if (dd) {
         const decision = dd.dataset.dd;
@@ -1023,8 +1054,78 @@
         b.disabled = false;
       }
     });
-    const loaders = { apps: loadApps, users: loadUsers, invites: loadInvites, audit: loadAudit, courses: loadCourses };
-    show("apps");
+    // Payments to confirm: AiMove top-ups and payouts, GreenFed payments, in one list.
+    const PAY_PRODUCTS = ["aimove", "greenfed"];
+    $$("[data-pay]").forEach((x) => (x.hidden = !products.some((p) => PAY_PRODUCTS.includes(p))));
+    const payMsg = (m, bad) =>
+      ($("[data-pay-msg]").innerHTML = m ? `<div class="note ${bad ? "note--bad" : ""}">${esc(m)}</div>` : "");
+    const naira = (n) => "NGN " + Number(n).toLocaleString("en-NG");
+    async function loadPayments() {
+      const box = $("#payments");
+      if (!box) return;
+      try {
+        const r = await RH.call("admin/payments");
+        $("[data-pay-n]").textContent = r.items.length;
+        $("[data-pay-n]").hidden = !r.items.length;
+        box.innerHTML =
+          r.items
+            .map(
+              (x) =>
+                `<article class="app-item"><div class="app-item__head"><div><b>${naira(x.amount)} · ${esc(x.what)}</b><br><small>${esc(x.who)} (${esc(x.email)}) · ${fmt(x.at)}</small></div><span class="st st--pending">${RH.PRODUCT_NAME[x.product]}</span></div>
+                <p style="margin:6px 0">${esc(x.detail)}</p>
+                ${x.own ? `<p class="mute">This is your own; another administrator must confirm it.</p>` : `<div class="row"><button class="btn btn--sm btn--ok" data-pay-yes data-p="${x.product}" data-id="${esc(x.id)}" data-kind="${esc(x.kind)}" data-amt="${x.amount}">${esc(x.yes)}</button><button class="btn btn--sm btn--bad" data-pay-no data-p="${x.product}" data-id="${esc(x.id)}">${esc(x.no)}</button></div>`}</article>`,
+            )
+            .join("") ||
+          `<p class="mute">Nothing waiting. New transfers show here as soon as someone says they have paid.</p>`;
+      } catch (e) {
+        box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
+      }
+    }
+    $("#payments").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-pay-yes],[data-pay-no]");
+      if (!b) return;
+      const yes = b.hasAttribute("data-pay-yes");
+      const p = b.dataset.p;
+      let note = "";
+      if (yes) {
+        const q =
+          b.dataset.kind === "payout"
+            ? `Have you sent ${naira(b.dataset.amt)} to the rider's bank?`
+            : `Is ${naira(b.dataset.amt)} in the bank account? Only confirm once you have seen it.`;
+        if (!confirm(q)) return;
+      } else if (p === "greenfed") {
+        note = prompt("Message to the customer (optional)", "We couldn't find your transfer in our account.");
+        if (note === null) return;
+      } else if (!confirm("Mark this as not received? The person is told to contact support.")) return;
+      b.disabled = true;
+      try {
+        const r =
+          p === "aimove"
+            ? await RH.call("aimove/review", {
+                method: "POST",
+                body: { id: b.dataset.id, decision: yes ? "confirm" : "reject" },
+              })
+            : await RH.call("greenfed/admin", {
+                method: "POST",
+                body: { action: yes ? "confirm_payment" : "reject_payment", id: b.dataset.id, note },
+              });
+        payMsg(r.message || "Saved.");
+        loadPayments();
+      } catch (er) {
+        payMsg(er.message, true);
+        b.disabled = false;
+      }
+    });
+    const loaders = {
+      apps: loadApps,
+      users: loadUsers,
+      invites: loadInvites,
+      audit: loadAudit,
+      courses: loadCourses,
+      payments: loadPayments,
+    };
+    if (products.some((p) => PAY_PRODUCTS.includes(p))) loadPayments();
+    show(location.hash === "#payments" && products.some((p) => PAY_PRODUCTS.includes(p)) ? "payments" : "apps");
   };
 
   if (P[page])

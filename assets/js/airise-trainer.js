@@ -467,5 +467,5 @@
   step(0);
   renderCourses();
   reload().catch((er) => toast(er.message));
-  if (location.hash === "#create") show("create");
+  if (["#create", "#guidelines"].includes(location.hash)) show(location.hash.slice(1));
 })();

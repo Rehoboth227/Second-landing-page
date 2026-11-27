@@ -48,6 +48,9 @@
         <button role="tab" data-tab="apps" aria-selected="true">
           Applications<span class="n" data-pending-n hidden>0</span>
         </button>
+        <button role="tab" data-tab="payments" aria-selected="false" data-pay hidden>
+          Payments to confirm<span class="n" data-pay-n hidden>0</span>
+        </button>
         <button role="tab" data-tab="users" aria-selected="false" data-super hidden>Users</button>
         <button role="tab" data-tab="invites" aria-selected="false">Invitations</button>
         <button role="tab" data-tab="audit" aria-selected="false" data-super hidden>Activity log</button>
@@ -62,6 +65,7 @@
             <option value="all">All except drafts</option>
             <option value="docs">Portfolio documents to check</option>
             <option value="docs-verified">Portfolio documents: verified</option>
+            <option value="opps">Opportunities posted by employers</option>
           </select>
         </div>
         <p class="mute">
@@ -92,6 +96,16 @@
           <button class="btn btn--sm" type="submit">Search</button>
         </form>
         <div id="apps" style="display: grid; gap: 12px"></div>
+      </section>
+      <section class="card" data-panel="payments" hidden aria-label="Payments to confirm">
+        <p class="mute">
+          Bank transfers people say they have made, waiting for you: AiMove wallet top-ups into Rehohub's Moniepoint
+          account, AiMove rider payouts to send, and GreenFed meal plan and grocery payments into GreenFed's account.
+          Check your bank app first, then confirm. GreenFed orders only reach staff (nutritionists, supply) after you
+          confirm. AiPay order payments go to each seller and are confirmed by the seller.
+        </p>
+        <div data-pay-msg></div>
+        <div id="payments" style="display: grid; gap: 12px"></div>
       </section>
       <section class="card" data-panel="users" hidden aria-label="Users">
         <form id="ufilters" class="filters" role="search">

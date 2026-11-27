@@ -218,6 +218,7 @@ function r_air_state(): never
         'quizzes' => array_map(fn ($a) => ['course' => $a['course'], 'score' => (int) $a['score'], 'total' => (int) $a['total'], 'passed' => (bool) $a['passed'], 'at' => $a['created_at']],
             q('SELECT * FROM airise_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 100', [$uid])->fetchAll()),
     ];
+    $out['unread'] = (int) row('SELECT COUNT(*) n FROM airise_notes WHERE user_id = ? AND read_at IS NULL', [$uid])['n'];
     if (in_array('learner', $roles, true)) {
         $out['rank'] = air_rank($uid);
         $out['suggest'] = air_suggest($uid);

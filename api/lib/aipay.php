@@ -472,6 +472,18 @@ function r_aipay_products(): never
     ok(['items' => array_map('aipay_product_out', array_slice($rows, 0, 60)), 'more' => $more, 'categories' => AIPAY_CATEGORIES]);
 }
 
+/** A seller's own shop page (their link): the store profile, only while the store is live. */
+function r_aipay_storefront(): never
+{
+    $id = (int) ($_GET['id'] ?? 0);
+    $s = $id > 0 && aipay_is_live($id) ? aipay_store($id) : null;
+    if (!$s) {
+        fail(404, 'not_found', 'This store is not open on AiPay.');
+    }
+    ok(['store' => aipay_store_public($s) + ['id' => $id, 'email' => $s['email'], 'phone' => $s['phone'], 'street' => $s['street'],
+        'products' => (int) row('SELECT COUNT(*) n FROM aipay_products WHERE merchant_id = ? AND active = 1', [$id])['n']]]);
+}
+
 function r_aipay_product(): never
 {
     $id = (int) ($_GET['id'] ?? 0);

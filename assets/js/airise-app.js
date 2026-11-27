@@ -348,6 +348,12 @@
         .join("") ||
       `<div class="empty card"><b>No certificates yet</b>Finish every lesson of a course to earn one.</div>`;
 
+    // Unread class updates and messages on the bell.
+    const bell = $("[data-bell]");
+    if (bell && ST.unread) {
+      bell.insertAdjacentHTML("beforeend", `<span class="dot" aria-hidden="true"></span>`);
+      bell.setAttribute("aria-label", `Notifications: ${ST.unread} unread`);
+    }
     // Talent ranking from the portfolio (server), and courses suggested from it.
     const rk = ST.rank;
     if (rk && $("[data-rank-pos]")) {

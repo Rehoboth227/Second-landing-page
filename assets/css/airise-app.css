@@ -1562,6 +1562,16 @@ fieldset.field {
   color: var(--soft);
   font-size: 12px;
 }
+/* Rows that hold sentences (notifications, classes, applicants) wrap instead of widening the page. */
+.file {
+  min-width: 0;
+}
+[data-hub] .file span,
+[data-folders] .file span,
+#pf-dlg .file span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 .module {
   border: 1px solid var(--line);
