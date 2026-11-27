@@ -1,0 +1,3 @@
+# Private uploads (AiRise course files). Never served directly: only through /api/airise/file.
+Require all denied
+Options -Indexes

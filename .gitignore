@@ -1,2 +1,6 @@
 .DS_Store
 node_modules/
+
+# Uploaded AiRise course files (kept on the server only)
+api/storage/*
+!api/storage/.htaccess

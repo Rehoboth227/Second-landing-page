@@ -60,7 +60,7 @@ assets/css/greenfed-app.css    GreenFed web app styles (light and dark)
 assets/js/greenfed-app.js      GreenFed web app: meal library, routing and every screen (data from the API)
 assets/js/airise.js            AiRise only: course filter, result calculator, certificate checker, checklist
 assets/css/airise-app.css      AiRise app pages (dashboard, course player, trainer studio)
-assets/js/airise-app.js        AiRise course data, dashboard and course player
+assets/js/airise-app.js        AiRise course data, dashboard and course player (data from the API)
 assets/js/airise-trainer.js    Trainer studio: course list, upload wizard, quiz builder
 assets/img/                    Logos, favicon and photography
 assets/media/aipay/            AiPay walkthrough videos and their poster frames
@@ -95,9 +95,19 @@ is the quickest way.
 
 The dashboard, course player and trainer studio follow the "Online Learning" dashboard layout and the
 "E Learning Site" course view from the Figma files, in AiRise navy and gold with Poppins (as on Rheti).
-They are front-end only: learner progress and trainers' courses are saved in the visitor's browser
-(localStorage), and uploaded files are not sent anywhere; only their names and sizes are kept.
-Connecting a backend (accounts, file storage, review queue) is the next step before launch.
+Everything is stored on the server (`api/lib/airise.php`, `airise_*` tables from
+`database/migrations-004-airise.sql`):
+
+- **Learners**: lesson progress follows their account to any device. Finishing every lesson of a course issues
+  a certificate with a unique number (AIR-C3-2026-001; AIR-H for The Hack, AIR-T12 for trainer course 12), and
+  anyone can check a number on `services/rheti/certificates.html`. The dashboard shows real progress, next
+  lessons, study time for the last 7 days, certificates and the trainers whose courses are published.
+- **Trainers** write a course in four steps. Lesson files (video, audio, PDF, slides, Word) and the cover upload
+  straight away in 4 MB pieces to a private folder, and are only handed out to the trainer, AiRise
+  administrators and, once the course is published, signed-in AiRise learners (videos stream with seeking).
+- **Administrators** review submitted courses in the admin console (**AiRise courses**), see the quiz answers,
+  preview the course, and publish it or send it back with a note (the trainer is emailed). Quizzes on trainer
+  courses are marked by the server; learners never receive the answers.
 
 ## AiMove web app
 
@@ -109,9 +119,8 @@ operations view (shipments, rider assignment, fleet GPS, API sandbox and logs). 
 comes from their Rehohub account (customer, approved rider, AiMove or super administrator); someone with
 several roles can switch between their own roles only.
 
-Sign-in and roles are real (see "Accounts and roles"). Deliveries, wallet and payouts are still saved per
-account on the device; payments, maps and calls are simulated, and other riders, distances and GPS positions
-are sample data until bookings are connected to the database.
+Sign-in and roles are real (see "Accounts and roles"). Deliveries, the escrow wallet, top-ups and payouts are
+stored on the server (`api/lib/aimove.php`); maps and distances use Google Maps when keys are set (see DEPLOY.md).
 
 ## AiMove pricing and escrow
 
@@ -134,8 +143,7 @@ Every payment, from the wallet or by card, is held in **escrow**. When the rider
 4-digit PIN, the escrow is released automatically to the rider's earnings (their 85% share): no
 administrator approval. Five wrong PINs lock the delivery until support helps. Cancelling before pickup
 refunds the escrow to the customer's wallet. Operations staff can move a delivery along but cannot mark it
-delivered; only the PIN does that. In this preview the wallet and escrow are kept on the device; when
-bookings move to the server, the server must hold the escrow and recalculate every price itself.
+delivered; only the PIN does that. The server holds the escrow and recalculates every price itself.
 
 ## GreenFed web app
 
@@ -168,10 +176,8 @@ One Rehohub account works for every product. Customers are approved automaticall
 email is confirmed; riders, merchants, GreenFed employees and AiRise trainers wait for an
 administrator; administrators are invite-only (the very first one is created once with
 `account/setup.html`). The server (`api/`) decides who may use each side of each app; the pages
-only show the right screens. AiMove and GreenFed use it for sign-in and roles, and the AiRise
-dashboard, course player and trainer studio require an approved AiRise role. Product data
-(orders, plans, progress) is still saved per account on the device until each product is
-connected to the database. See DEPLOY.md for the full permission table.
+only show the right screens. Every product (AiPay, AiMove, GreenFed and AiRise) uses it for
+sign-in and roles and keeps its data in the database. See DEPLOY.md for the full permission table.
 
 Local testing needs PHP and MySQL: point the `REHOHUB_CONFIG` environment variable at a config
 file with `'env' => 'development'` (which also allows `'mail' => ['transport' => 'log']` to write
@@ -192,7 +198,7 @@ and the navy and gold of AiRise and Rheti (Rheti uses Poppins, per its brand gui
 
 ## Before launch
 
-- The App Store / Google Play links are placeholders. AiPay payments, products and notifications are saved per account on the device and checkouts run in test mode until the AiPay payment server is connected.
+- The App Store / Google Play links are placeholders. Card payments (Paystack or Flutterwave) are not connected yet; payments are by bank transfer, confirmed by an administrator.
 - AiMove, AiRise and Rheti have no product email yet and use info@rehohub.com.
 - The AiRise assessment page publishes only the structure and rules of the assessments.
   Keep answer keys, model answers and marking guides out of this public site.

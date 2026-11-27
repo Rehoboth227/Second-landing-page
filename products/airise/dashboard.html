@@ -171,7 +171,7 @@
             <li>
               <a class="side__link" href="../../services/rheti/assessment.html"
                 ><svg class="i" aria-hidden="true"><use href="#i-help" /></svg><span>Assessments</span
-                ><span class="count">1</span></a
+                ></a
               >
             </li>
             <li>
@@ -201,23 +201,7 @@
             </li>
           </ul>
         </nav>
-        <div class="side__group">
-          <h2>Study group</h2>
-          <ul class="side__people">
-            <li>
-              <span class="avatar avatar--gold">TA</span>
-              <div><b>Tobi Adeyemi</b><small>Accountability partner</small></div>
-            </li>
-            <li>
-              <span class="avatar avatar--blue">CN</span>
-              <div><b>Chidinma Nwosu</b><small>Phase 3 · Grow</small></div>
-            </li>
-            <li>
-              <span class="avatar">IB</span>
-              <div><b>Ibrahim Bello</b><small>Phase 2 · Deliver</small></div>
-            </li>
-          </ul>
-        </div>
+
         <nav class="side__group side__foot" aria-label="Account">
           <h2>Settings</h2>
           <ul>
@@ -262,8 +246,8 @@
           /></label>
           <button class="icon-btn" type="button" aria-label="Filter courses">
             <svg class="i" aria-hidden="true"><use href="#i-filter" /></svg></button
-          ><a class="icon-btn keep" href="#upcoming" aria-label="Notifications: 3 upcoming"
-            ><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span class="dot"></span
+          ><a class="icon-btn keep" href="#upcoming" aria-label="Next up"
+            ><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg
           ></a>
         </div>
         <section class="banner" aria-labelledby="banner-t">
@@ -325,69 +309,23 @@
 
         <section class="sec" id="upcoming" aria-labelledby="up-t">
           <div class="sec__head">
-            <h2 id="up-t">Upcoming</h2>
+            <h2 id="up-t">Next up</h2>
             <a href="../../services/rheti/assessment.html">How assessments work</a>
           </div>
           <div class="table card">
             <table>
               <thead>
                 <tr>
-                  <th scope="col">With</th>
+                  <th scope="col">Course</th>
                   <th scope="col">Type</th>
                   <th scope="col">What</th>
-                  <th scope="col">When</th>
+                  <th scope="col">Time</th>
                   <th scope="col"><span class="sr-only">Action</span></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody data-upcoming>
                 <tr>
-                  <td>
-                    <div class="who">
-                      <span class="avatar">JO</span>
-                      <div><b>Joshua D. Obebe</b><small>Instructor</small></div>
-                    </div>
-                  </td>
-                  <td><span class="pill pill--rose">Quiz</span></td>
-                  <td>Continuous Learning: course quiz</td>
-                  <td>Fri, 10:00</td>
-                  <td>
-                    <a class="btn btn--ghost btn--sm" href="learn.html?course=continuous-learning&lesson=8">Prepare</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div class="who">
-                      <span class="avatar avatar--gold">TA</span>
-                      <div><b>Tobi Adeyemi</b><small>Accountability partner</small></div>
-                    </div>
-                  </td>
-                  <td><span class="pill">Check-in</span></td>
-                  <td>90-day plan review</td>
-                  <td>Sat, 16:00</td>
-                  <td>
-                    <button
-                      class="btn btn--ghost btn--sm"
-                      type="button"
-                      data-toggle
-                      aria-pressed="false"
-                      data-on="Confirmed"
-                      data-off="Confirm"
-                    >
-                      Confirm
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div class="who">
-                      <span class="avatar avatar--blue">KP</span>
-                      <div><b>Kora Partners</b><small>Employer</small></div>
-                    </div>
-                  </td>
-                  <td><span class="pill pill--navy">Interview</span></td>
-                  <td>Graduate data analyst</td>
-                  <td>Tue, 11:30</td>
-                  <td><a class="btn btn--ghost btn--sm" href="../../services/rheti/talent.html">Details</a></td>
+                  <td colspan="5">Loading…</td>
                 </tr>
               </tbody>
             </table>
@@ -401,7 +339,6 @@
           </div>
           <div class="certs" data-certs></div>
         </section>
-        <p class="note">Sample learner account. Your progress is saved in this browser only.</p>
       </main>
 
       <aside class="aside" aria-label="Your profile">
@@ -433,45 +370,14 @@
           </div>
         </div>
         <div class="rank">
-          <div><small>Talent pool ranking</small><b>Data Analyst</b></div>
-          <strong>#12</strong>
+          <div><small>Lessons completed</small><b>All courses</b></div>
+          <strong data-lessons-done>0</strong>
         </div>
         <div class="chart">
-          <h3>Study hours <span>This week · 9.5 h</span></h3>
-          <ul class="chart__bars">
-            <li>
-              <div class="col" style="height: 40%">
-                <i style="flex: 1"></i><i style="flex: 1"></i><i style="flex: 2"></i>
-              </div>
-              <small>Mon</small>
-            </li>
-            <li>
-              <div class="col" style="height: 66%">
-                <i style="flex: 1"></i><i style="flex: 1"></i><i style="flex: 2"></i>
-              </div>
-              <small>Tue</small>
-            </li>
-            <li>
-              <div class="col" style="height: 52%">
-                <i style="flex: 1"></i><i style="flex: 1"></i><i style="flex: 3"></i>
-              </div>
-              <small>Wed</small>
-            </li>
-            <li>
-              <div class="col" style="height: 92%">
-                <i style="flex: 1"></i><i style="flex: 2"></i><i style="flex: 3"></i>
-              </div>
-              <small>Thu</small>
-            </li>
-            <li>
-              <div class="col" style="height: 78%">
-                <i style="flex: 1"></i><i style="flex: 1"></i><i style="flex: 3"></i>
-              </div>
-              <small>Fri</small>
-            </li>
-          </ul>
+          <h3>Study time <span data-chart-sum>Last 7 days</span></h3>
+          <ul class="chart__bars" data-chart></ul>
           <div class="legend">
-            <span><i style="background: #f6e3b4"></i>Reading</span
+            <span><i style="background: #f6e3b4"></i>Quizzes</span
             ><span><i style="background: var(--gold-2)"></i>Practice</span
             ><span><i style="background: var(--navy)"></i>Lessons</span>
           </div>
@@ -487,64 +393,7 @@
               ><svg class="i" aria-hidden="true"><use href="#i-plus" /></svg
             ></a>
           </h3>
-          <ul>
-            <li>
-              <span class="avatar">JO</span>
-              <div><b>Joshua D. Obebe</b><small>Instructor, AiRise</small></div>
-              <button
-                class="follow"
-                type="button"
-                data-toggle
-                aria-pressed="true"
-                data-on="Following"
-                data-off="Follow"
-              >
-                Following
-              </button>
-            </li>
-            <li>
-              <span class="avatar avatar--gold">RT</span>
-              <div><b>Rheti trainers</b><small>Entrepreneurship · The Hack</small></div>
-              <button
-                class="follow"
-                type="button"
-                data-toggle
-                aria-pressed="false"
-                data-on="Following"
-                data-off="Follow"
-              >
-                Follow
-              </button>
-            </li>
-            <li>
-              <span class="avatar avatar--blue">NE</span>
-              <div><b>Ngozi Eze</b><small>HR business partner</small></div>
-              <button
-                class="follow"
-                type="button"
-                data-toggle
-                aria-pressed="false"
-                data-on="Following"
-                data-off="Follow"
-              >
-                Follow
-              </button>
-            </li>
-            <li>
-              <span class="avatar avatar--soft">FA</span>
-              <div><b>Femi Adebayo</b><small>Data analytics lead</small></div>
-              <button
-                class="follow"
-                type="button"
-                data-toggle
-                aria-pressed="false"
-                data-on="Following"
-                data-off="Follow"
-              >
-                Follow
-              </button>
-            </li>
-          </ul>
+          <ul data-mentors></ul>
           <a class="btn btn--ghost btn--block" href="../../services/rheti/facilitators.html" style="margin-top: 14px"
             >See all mentors</a
           >

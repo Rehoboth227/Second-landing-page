@@ -879,7 +879,104 @@
         box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
       }
     }
-    const loaders = { apps: loadApps, users: loadUsers, invites: loadInvites, audit: loadAudit };
+    // AiRise courses: trainers' courses waiting for review, published or sent back.
+    $$("[data-airise]").forEach((x) => (x.hidden = !products.includes("airise")));
+    const C_ST = { review: "pending", published: "approved", changes: "rejected", draft: "pending" };
+    const C_LABEL = {
+      review: "waiting for review",
+      published: "published",
+      changes: "changes requested",
+      draft: "draft",
+    };
+    const courseMsg = (m, bad) =>
+      ($("[data-course-msg]").innerHTML = m ? `<div class="note ${bad ? "note--bad" : ""}">${esc(m)}</div>` : "");
+    async function loadCourses() {
+      const box = $("#courses");
+      box.innerHTML = `<p class="mute">Loading…</p>`;
+      try {
+        const r = await RH.call("admin/airise/courses?status=" + $("#c-status").value);
+        const link = (f) =>
+          `<a href="${esc(RH.url("api/airise/file?id=" + f.id))}" target="_blank" rel="noopener">${esc(f.name)}</a>`;
+        box.innerHTML =
+          r.items
+            .map((c) => {
+              const d = c.data;
+              const lessons = d.modules
+                .map(
+                  (m, i) =>
+                    `<li><b>${esc(m.title || "Module " + (i + 1))}</b><ul>${m.lessons
+                      .filter((l) => l.title)
+                      .map(
+                        (l) =>
+                          `<li>${esc(l.title)} <small class="mute">(${esc(l.type)}, ${l.min || "?"} min)</small>${l.file ? " · " + link(l.file) : ""}</li>`,
+                      )
+                      .join("")}</ul></li>`,
+                )
+                .join("");
+              const qs = d.questions
+                .map(
+                  (q) =>
+                    `<li>${esc(q.text)}<br><small>${q.opts
+                      .map((o, k) => (o ? (k === q.correct ? `<b>✓ ${esc(o)}</b>` : esc(o)) : ""))
+                      .filter(Boolean)
+                      .join(" · ")}</small></li>`,
+                )
+                .join("");
+              const acts = {
+                review: [
+                  ["publish", "Publish", "btn--ok"],
+                  ["changes", "Ask for changes", "btn--bad"],
+                ],
+                published: [["unpublish", "Take down", "btn--bad"]],
+              }[c.status];
+              return `<article class="app-item"><div class="app-item__head"><div><b>${esc(c.title)}</b> · <span class="mute">${esc(c.trainer)} (${esc(c.email)})</span><br><small>${esc(d.track)} · ${esc(d.level)} · about ${d.hours} hours${c.submitted ? " · sent " + fmt(c.submitted) : ""}${c.status === "published" ? " · " + c.learners + " learners" : ""}</small></div><span class="st st--${C_ST[c.status]}">${C_LABEL[c.status]}</span></div>
+                <dl><dt>Summary</dt><dd>${esc(d.summary)}</dd>${d.outcomes ? `<dt>Outcomes</dt><dd>${esc(d.outcomes)}</dd>` : ""}<dt>Skills</dt><dd>${esc(d.skills.join(", ") || "None")}</dd><dt>Cover</dt><dd>${d.cover ? link(d.cover) : "None"}</dd>
+                <dt>Lessons</dt><dd><ul style="margin:0;padding-left:18px">${lessons}</ul></dd><dt>Quiz</dt><dd>${qs ? `<ol style="margin:0;padding-left:18px">${qs}</ol>Pass mark ${d.pass}%` : "No quiz"}${d.scenario ? `<br>Scenario: ${esc(d.scenario)}` : ""}</dd>${c.note ? `<dt>Last note</dt><dd>${esc(c.note)}</dd>` : ""}</dl>
+                <div class="row"><a class="btn btn--sm btn--ghost" href="${esc(RH.url("products/airise/learn.html?course=t" + c.id))}" target="_blank" rel="noopener">Preview</a>${(
+                  acts || []
+                )
+                  .map(
+                    ([k, t, cl]) =>
+                      `<button class="btn btn--sm ${cl}" data-course="${c.id}" data-decision="${k}" data-title="${esc(c.title)}">${t}</button>`,
+                  )
+                  .join("")}</div></article>`;
+            })
+            .join("") || `<p class="mute">No courses here.</p>`;
+      } catch (e) {
+        box.innerHTML = `<div class="note note--bad">${esc(e.message)}</div>`;
+      }
+    }
+    $("#c-status").onchange = () => (courseMsg(""), loadCourses());
+    $("#courses").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-decision]");
+      if (!b) return;
+      const k = b.dataset.decision;
+      let note = "";
+      if (k === "publish") {
+        if (!confirm(`Publish "${b.dataset.title}" for all AiRise learners?`)) return;
+      } else {
+        note =
+          prompt(
+            k === "changes"
+              ? "What should the trainer change? (they get this by email)"
+              : "Why is it being taken down? (the trainer gets this by email)",
+          ) || "";
+        if (!note.trim()) return;
+      }
+      b.disabled = true;
+      try {
+        const r = await RH.call("admin/airise/review", {
+          method: "POST",
+          body: { id: +b.dataset.course, decision: k, note },
+        });
+        courseMsg(r.message);
+        loadCourses();
+      } catch (er) {
+        courseMsg(er.message, true);
+        b.disabled = false;
+      }
+    });
+    const loaders = { apps: loadApps, users: loadUsers, invites: loadInvites, audit: loadAudit, courses: loadCourses };
     show("apps");
   };
 

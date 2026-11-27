@@ -1,4 +1,4 @@
-/* AiRise interactions: course filter, result calculator, certificate number reader, facilitator checklist */
+/* AiRise interactions: course filter, result calculator, certificate check (asks the server), facilitator checklist */
 (() => {
   // Course filter by phase
   const tabs = document.querySelectorAll(".ar-tabs [data-filter]");
@@ -61,21 +61,39 @@
       btn = ver.querySelector("button"),
       box = ver.querySelector(".ar-verify__out");
     const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    const check = () => {
+    // Reads the number, then asks the AiRise server whether it was really issued.
+    const check = async () => {
       const v = input.value.trim().toUpperCase();
       if (!v) {
         box.innerHTML = "";
         return;
       }
-      const m = v.match(/^AIR-(C([1-9])|P)-(20\d\d)-(\d{3,})$/);
+      const m = v.match(/^AIR-(C([1-9])|P|H|T(\d+))-(20\d\d)-(\d{3,})$/);
       if (!m) {
-        box.innerHTML = `<div class="bad">“${esc(v)}” doesn't match the AiRise format. It should look like AIR-C3-2026-001 or AIR-P-2026-001.</div>`;
+        box.innerHTML = `<div class="bad">“${esc(v)}” doesn't match the AiRise format. It should look like AIR-C3-2026-001.</div>`;
         return;
       }
       const what = m[2]
         ? `Course ${m[2]} certificate: <b>${courses[+m[2] - 1]}</b>`
-        : "<b>Programme certificate</b> (all nine courses and the final assessment)";
-      box.innerHTML = `<div class="ok">${what}<br>Issued in ${m[3]} · serial ${m[4]}<br><small>This checks the format only. To confirm a certificate is genuine, contact AiRise with this number.</small></div>`;
+        : m[1] === "P"
+          ? "<b>Programme certificate</b> (all nine courses and the final assessment)"
+          : m[1] === "H"
+            ? "<b>The Hack</b> (partner course with Rheti)"
+            : "<b>AiRise trainer course</b>";
+      box.innerHTML = `<div class="ok">Checking ${esc(v)}…</div>`;
+      try {
+        const res = await fetch(new URL("../../api/airise/cert?number=" + encodeURIComponent(v), location.href), {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        const r = await res.json();
+        if (!r.ok) throw new Error();
+        box.innerHTML = r.found
+          ? `<div class="ok"><b>Genuine.</b> ${esc(r.number)} was issued to <b>${esc(r.name)}</b> for <b>${esc(r.title)}</b> on ${esc(r.issued)}.</div>`
+          : `<div class="bad">${what}, issued in ${m[4]}. <b>We have no certificate with this number.</b> Check it was typed correctly, or contact AiRise.</div>`;
+      } catch (e) {
+        box.innerHTML = `<div class="ok">${what}<br>Issued in ${m[4]} · serial ${m[5]}<br><small>We couldn't reach the AiRise records just now, so only the format was checked. Try again, or contact AiRise with this number.</small></div>`;
+      }
     };
     btn.addEventListener("click", check);
     input.addEventListener("keydown", (e) => {

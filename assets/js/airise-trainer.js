@@ -1,67 +1,19 @@
 /* AiRise trainer studio: list a trainer's courses and upload a new one in four steps
    (details, curriculum, assessment, review and submit).
-   Course details are saved in this browser only. File contents are not uploaded or stored:
-   only each file's name, type and size are kept, until a server is connected. */
+   Courses are saved on the server (api/lib/airise.php) and reviewed by AiRise administrators
+   before learners see them. Files upload straight away in 4 MB pieces to private storage. */
 (() => {
   "use strict";
   const { COURSES, esc, ic } = window.AiRise;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const KEY = "airise-trainer-v1";
   const SKILLS = COURSES.slice(0, 9).map((c) => c.title);
-
-  // Sample catalogue for the signed-in trainer
-  const SAMPLE = [
-    {
-      id: "s1",
-      title: "Communication Skills",
-      track: "Employability skill",
-      skills: ["Communication Skills"],
-      modules: 7,
-      lessons: 14,
-      hours: 20,
-      status: "published",
-      learners: 312,
-      updated: "2026-10-02",
-    },
-    {
-      id: "s2",
-      title: "Writing a CV that gets interviews",
-      track: "Career readiness",
-      skills: ["Communication Skills", "Self-Awareness"],
-      modules: 3,
-      lessons: 9,
-      hours: 4,
-      status: "review",
-      learners: 0,
-      updated: "2026-11-18",
-    },
-    {
-      id: "s3",
-      title: "Excel for entry-level analysts",
-      track: "Technical skill",
-      skills: ["Problem-Solving", "Continuous Learning"],
-      modules: 5,
-      lessons: 16,
-      hours: 8,
-      status: "draft",
-      learners: 0,
-      updated: "2026-11-21",
-    },
-  ];
-  const load = () => {
-    try {
-      const v = JSON.parse(localStorage.getItem(KEY));
-      if (Array.isArray(v)) return v;
-    } catch (e) {}
-    return [];
-  };
-  const save = (v) => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(v));
-    } catch (e) {}
-  };
-  let mine = load();
+  const api = (path, body) => RH.call(path, body === undefined ? {} : { method: "POST", body });
+  let mine = [];
+  async function reload() {
+    mine = (await api("airise/state")).mine || [];
+    renderCourses();
+  }
 
   const toast = (msg) => {
     const t = $(".toast");
@@ -72,6 +24,12 @@
   };
   const size = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
   const STATUS = { published: "Published", review: "In review", draft: "Draft", changes: "Changes requested" };
+  const fmtDay = (t) =>
+    new Date(String(t).replace(" ", "T") + "Z").toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
 
   // ---------------------------------------------------------------- tabs
   const tabs = $$('[role="tab"]');
@@ -93,41 +51,56 @@
 
   // ---------------------------------------------------------------- my courses
   function renderCourses() {
-    const all = [...mine, ...SAMPLE];
-    const n = (s) => all.filter((c) => c.status === s).length;
+    const n = (st) => mine.filter((c) => c.status === st).length;
     $("[data-kpis]").innerHTML = [
       ["Published", n("published")],
       ["In review", n("review")],
-      ["Drafts", n("draft")],
-      ["Learners", all.reduce((a, c) => a + (c.learners || 0), 0)],
+      ["Drafts", n("draft") + n("changes")],
+      ["Learners", mine.reduce((a, c) => a + (c.learners || 0), 0)],
     ]
       .map(([l, v]) => `<div class="kpi card"><small>${l}</small><b>${v}</b></div>`)
       .join("");
-    $("[data-course-rows]").innerHTML = all
-      .map(
-        (c) => `<tr>
-        <td><div class="who"><span class="avatar ${c.status === "published" ? "" : "avatar--soft"}">${esc(c.title.slice(0, 2).toUpperCase())}</span><div><b>${esc(c.title)}</b><small>${esc(c.track)} · ${c.modules} modules · ${c.lessons} lessons</small></div></div></td>
-        <td>${c.skills
+    $("[data-course-rows]").innerHTML =
+      mine
+        .map((c) => {
+          const d = c.data;
+          const editable = c.status === "draft" || c.status === "changes";
+          return `<tr>
+        <td><div class="who"><span class="avatar ${c.status === "published" ? "" : "avatar--soft"}">${esc(c.title.slice(0, 2).toUpperCase())}</span><div><b>${esc(c.title)}</b><small>${esc(d.track)} · ${d.modules.length} modules · ${c.lessons} lessons</small>${c.status === "changes" && c.note ? `<small style="color:var(--red)">AiRise: ${esc(c.note)}</small>` : ""}</div></div></td>
+        <td>${(d.skills.length ? d.skills : ["Not mapped"])
           .slice(0, 2)
-          .map((s) => `<span class="pill pill--navy">${esc(s)}</span>`)
+          .map((x) => `<span class="pill pill--navy">${esc(x)}</span>`)
           .join(" ")}</td>
         <td><span class="status status--${c.status}">${STATUS[c.status]}</span></td>
         <td>${c.learners || "—"}</td>
-        <td style="white-space:nowrap">${esc(new Date(c.updated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }))}</td>
-        <td>${c.local ? `<button class="btn btn--ghost btn--sm" type="button" data-edit="${c.id}">${c.status === "draft" ? "Continue" : "View"}</button>` : `<span class="pill pill--grey">Sample</span>`}</td>
-      </tr>`,
-      )
-      .join("");
+        <td style="white-space:nowrap">${esc(fmtDay(c.updated))}</td>
+        <td style="white-space:nowrap">${editable ? `<button class="btn btn--ghost btn--sm" type="button" data-edit="${c.id}">${c.status === "draft" ? "Continue" : "Make changes"}</button> <button class="btn btn--ghost btn--sm" type="button" data-del="${c.id}" aria-label="Delete draft ${esc(c.title)}">${ic("trash")}</button>` : `<a class="btn btn--ghost btn--sm" href="learn.html?course=t${c.id}">${c.status === "published" ? "View" : "Preview"}</a>`}</td>
+      </tr>`;
+        })
+        .join("") ||
+      `<tr><td colspan="6">No courses yet. Use <b>Upload a course</b> to create your first one.</td></tr>`;
   }
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-edit]");
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      if (!confirm("Delete this draft? This cannot be undone.")) return;
+      try {
+        await api("airise/course", { id: +del.dataset.del, action: "delete" });
+        await reload();
+        toast("Draft deleted");
+      } catch (er) {
+        toast(er.message);
+      }
+    }
     if (!b) return;
-    const c = mine.find((x) => x.id === b.dataset.edit);
-    if (c && c.draft) {
-      fill(c.draft);
+    const c = mine.find((x) => x.id === +b.dataset.edit);
+    if (c) {
+      fill(c.data);
+      editing = c.id;
       show("create");
-      step(c.status === "draft" ? 0 : 3);
-      toast("Draft loaded");
+      step(0);
+      toast(c.status === "changes" ? "Make the changes, then submit again" : "Draft loaded");
     }
   });
 
@@ -209,15 +182,30 @@
   ).join("");
 
   // Drop zones (cover image + lesson files)
+  // Uploads go to the server in 4 MB pieces; the zone keeps the stored file's id, name, type and size.
+  async function upload(file, use, onPct) {
+    const st = await api("airise/upload/start", { name: file.name, size: file.size, use });
+    let off = 0;
+    let out = null;
+    while (off < file.size) {
+      const r = await RH.raw("airise/upload/chunk?id=" + st.id + "&offset=" + off, file.slice(off, off + st.chunk));
+      off = r.received;
+      onPct(Math.round((off / file.size) * 100));
+      if (r.done) out = r.file;
+    }
+    return out;
+  }
+  const fileHtml = (f, extra = "") =>
+    `<div class="file">${ic(/^video/.test(f.mime || f.type || "") ? "play-circle" : /^image/.test(f.mime || f.type || "") ? "image" : "file")}<span>${esc(f.name)}</span><em>${extra || size(f.size)}</em></div>`;
+  let uploading = 0;
   function bindDrop(zone) {
     const input = $("input[type=file]", zone);
     const out = zone.parentElement.querySelector("[data-files]");
-    const showFiles = (files) => {
+    const isCover = zone.hasAttribute("data-cover");
+    const showFiles = async (files) => {
       if (!files.length) return;
       const f = files[0];
-      zone.dataset.file = JSON.stringify({ name: f.name, type: f.type, size: f.size });
-      if (out)
-        out.innerHTML = `<div class="file">${ic(f.type.startsWith("video") ? "play-circle" : f.type.startsWith("image") ? "image" : "file")}<span>${esc(f.name)}</span><em>${size(f.size)}</em></div>`;
+      if (out) out.innerHTML = fileHtml(f, "Uploading 0%");
       if (zone.hasAttribute("data-preview") && f.type.startsWith("image")) {
         const r = new FileReader();
         r.onload = () => {
@@ -230,6 +218,20 @@
         };
         r.readAsDataURL(f);
       }
+      uploading++;
+      try {
+        const saved = await upload(f, isCover ? "cover" : "lesson", (p) => {
+          if (out) out.innerHTML = fileHtml(f, `Uploading ${p}%`);
+        });
+        zone.dataset.file = JSON.stringify(saved);
+        if (out) out.innerHTML = fileHtml(saved);
+      } catch (er) {
+        zone.removeAttribute("data-file");
+        if (out)
+          out.innerHTML = `<div class="file" style="color:var(--red)">${ic("file")}<span>${esc(f.name)}</span><em>Not uploaded</em></div>`;
+        toast(er.message);
+      }
+      uploading--;
     };
     input.addEventListener("change", () => showFiles(input.files));
     ["dragenter", "dragover"].forEach((ev) =>
@@ -254,7 +256,7 @@
       <select class="inp" data-l="type" aria-label="Lesson type">${["Video", "Document", "Reading", "Practice activity", "Live session"].map((t) => `<option ${l.type === t ? "selected" : ""}>${t}</option>`).join("")}</select>
       <input class="inp" data-l="min" type="number" min="1" placeholder="Mins" value="${esc(l.min || "")}" aria-label="Duration in minutes">
       <button class="x-btn" type="button" data-del-lesson aria-label="Remove lesson">${ic("trash")}</button>
-      <div class="lrow__file"><label class="drop">${ic("upload")}<span><b>Upload file</b> · video, PDF, slides or audio</span><input type="file" accept="video/*,audio/*,application/pdf,.ppt,.pptx,.doc,.docx" aria-label="Upload lesson file"></label><div data-files>${l.file ? `<div class="file">${ic("file")}<span>${esc(l.file.name)}</span><em>${size(l.file.size)}</em></div>` : ""}</div></div>
+      <div class="lrow__file"><label class="drop"${l.file ? ` data-file='${esc(JSON.stringify(l.file))}'` : ""}>${ic("upload")}<span><b>Upload file</b> · video, PDF, slides or audio</span><input type="file" accept=".mp4,.m4v,.webm,.mov,.mp3,.m4a,.wav,.ogg,.pdf,.ppt,.pptx,.doc,.docx" aria-label="Upload lesson file"></label><div data-files>${l.file ? fileHtml(l.file) : ""}</div></div>
     </div>`;
   function addModule(m = { title: "", lessons: [{}] }) {
     const d = document.createElement("div");
@@ -365,12 +367,28 @@
       (k) => d[k] !== undefined && (form[k].value = d[k]),
     );
     $$('[name="skills"]', form).forEach((c) => (c.checked = d.skills.includes(c.value)));
+    const cz = $("[data-cover]");
+    const pv = $("img.preview", cz);
+    if (pv) pv.remove();
+    if (d.cover) {
+      cz.dataset.file = JSON.stringify(d.cover);
+      $("[data-cover-files]").innerHTML = fileHtml(d.cover);
+      cz.appendChild(
+        Object.assign(document.createElement("img"), {
+          className: "preview",
+          alt: "Cover preview",
+          src: RH.url("api/airise/file?id=" + d.cover.id),
+        }),
+      );
+    } else {
+      cz.removeAttribute("data-file");
+      $("[data-cover-files]").innerHTML = "";
+    }
     modWrap.innerHTML = "";
     (d.modules.length ? d.modules : [{ title: "", lessons: [{}] }]).forEach(addModule);
     qWrap.innerHTML = "";
     d.questions.forEach(addQuestion);
     $("[data-qcount]").textContent = d.questions.length;
-    editing = d._id || null;
   }
   let editing = null;
 
@@ -393,47 +411,27 @@
       .join("");
   }
 
-  function store(status) {
-    const d = collect();
-    const id = editing || "c" + Date.now();
-    d._id = id;
-    const lessons = d.modules.reduce((a, m) => a + m.lessons.filter((l) => l.title).length, 0);
-    const rec = {
-      id,
-      local: true,
-      title: d.title || "Untitled course",
-      track: d.track,
-      skills: d.skills.length ? d.skills : ["Not mapped"],
-      modules: d.modules.length,
-      lessons,
-      hours: d.hours,
-      status,
-      learners: 0,
-      updated: new Date().toISOString().slice(0, 10),
-      draft: d,
-    };
-    mine = [rec, ...mine.filter((x) => x.id !== id)];
-    save(mine);
-    editing = id;
-  }
-  $("[data-save-draft]").addEventListener("click", () => {
-    if (!form.title.value.trim()) {
-      toast("Give the course a title before saving");
-      form.title.focus();
-      return;
+  async function store(action) {
+    if (uploading) {
+      toast("Wait for the uploads to finish");
+      return null;
     }
-    store("draft");
-    toast("Draft saved in this browser");
-  });
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (!check(3)) return;
-    store("review");
-    toast("Submitted for review. AiRise will reply within 5 working days.");
+    try {
+      const r = await api("airise/course", { id: editing || 0, data: collect(), action });
+      editing = r.id;
+      await reload();
+      toast(r.message);
+      return r;
+    } catch (er) {
+      toast(er.message);
+      return null;
+    }
+  }
+  function resetForm() {
     editing = null;
     form.reset();
     modWrap.innerHTML = "";
-    addModule();
+    addModule({ title: "", lessons: [{}, {}] });
     qWrap.innerHTML = "";
     addQuestion();
     $("[data-qcount]").textContent = 1;
@@ -442,6 +440,24 @@
     if (pv) pv.remove();
     $("[data-cover-files]").innerHTML = "";
     step(0);
+  }
+  $("[data-save-draft]").addEventListener("click", () => {
+    if (!form.title.value.trim()) {
+      toast("Give the course a title before saving");
+      form.title.focus();
+      return;
+    }
+    store("save");
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!check(3)) return;
+    const btn = $("[data-submit]");
+    btn.disabled = true;
+    const r = await store("submit");
+    btn.disabled = false;
+    if (!r) return;
+    resetForm();
     show("courses");
   });
 
@@ -450,5 +466,6 @@
   addQuestion();
   step(0);
   renderCourses();
+  reload().catch((er) => toast(er.message));
   if (location.hash === "#create") show("create");
 })();

@@ -201,6 +201,55 @@ public or private; the creator approves who joins a private one. Administrators 
 Approve GreenFed staff in **Admin console → Applications**; their type (nutritionist, supplier
 and so on) comes from their application.
 
+## Updating a site that is already live: AiRise on the server (November 2026)
+
+AiRise now keeps learner progress, certificates, quiz results and trainers' courses (with their
+files) in your database and on your server, instead of in each person's browser.
+
+1. cPanel → **phpMyAdmin** → your Rehohub database → **SQL** tab. Paste everything from
+   `database/migrations-004-airise.sql` and press **Go**. It only adds tables whose names start
+   with `airise_`.
+2. Upload the new files as usual (Step 1), including `api/lib/airise.php` and the folder
+   `api/storage/` with its `.htaccess` file. (In File Manager, turn on **Settings → Show Hidden
+   Files** to see it.) That `.htaccess` stops anyone downloading uploaded files directly.
+3. **Choose where course files are kept** (recommended). In File Manager, create a folder next to
+   `public_html`, not inside it, for example `/home/YOUR_CPANEL_USERNAME/airise-files`. Then in
+   your settings file add:
+
+   ```php
+   'airise' => [
+       'storage_dir'      => '/home/YOUR_CPANEL_USERNAME/airise-files',
+       'max_upload_mb'    => 500,   // largest single file
+       'trainer_quota_mb' => 5000,  // total space for each trainer
+   ],
+   ```
+
+   If you skip this, files go to `public_html/api/storage/airise`, which the `.htaccess` file
+   protects. Either way, the folder must be writable (cPanel normally creates it correctly).
+   Course videos take space: check **cPanel → Disk Usage** now and then.
+
+4. Nothing else to change in PHP: files arrive in 4 MB pieces, which fits cPanel's usual upload
+   limits.
+
+Progress people made before this update was only saved in their own browser, so it does not
+carry over: everyone starts at 0, and the sample progress and sample courses are gone.
+
+**How it works:**
+
+- **Learners**: every lesson they finish is saved to their account. When a course is complete,
+  the server issues a certificate with a unique number (for example AIR-C3-2026-001). Employers
+  can check any number on the Rheti **Certificates** page, which shows the learner's name, the
+  course and the date.
+- **Trainers** (approved in **Admin console → Applications**) write a course in the trainer
+  studio. Files upload as soon as they choose them and stay private.
+- **Reviewing courses**: you get an email when a trainer submits one. Open **Admin console →
+  AiRise courses**. Check the lessons and files, and the quiz answers (shown with ✓), and press
+  **Preview** to see it as a learner. Then press **Publish**, or **Ask for changes** with a note,
+  which is emailed to the trainer. A published course can be taken down later with **Take down**.
+  Nobody can review their own course.
+- Quizzes on trainer courses are marked by the server and learners never see the answers. The
+  nine-course series quizzes are sat with the instructor and then marked complete, as before.
+
 ## Google Maps for AiMove (optional, recommended)
 
 Without keys, AiMove estimates distances from the addresses and shows an illustrated map. With
@@ -276,10 +325,7 @@ offline.
 
 ## What is still front-end only (next phases)
 
-- **Product data**: AiRise course progress is still saved **per account on the person's
-  device** (AiPay, AiMove and GreenFed are in the database). The app says so with a "Preview"
-  note. Moving it into the database is the next phase.
-- **Payments** (Paystack or Flutterwave), **document uploads** (ID, licence, CAC certificate) for
-  approvals, **two-factor sign-in for administrators**, and the **terms and privacy policy pages**
+- **Payments** (Paystack or Flutterwave), **document uploads for approvals** (ID, licence, CAC
+  certificate; AiRise course files already upload), **two-factor sign-in for administrators**, and the **terms and privacy policy pages**
   (the sign-up form links to the contact section for now).
 - **Backups**: turn on cPanel → **Backup** (or JetBackup) so the database is backed up daily.

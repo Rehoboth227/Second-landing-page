@@ -1,5 +1,5 @@
 /* AiRise app: shared data, navigation drawer, learner dashboard and course player.
-   Progress is saved in this browser only (localStorage); there is no server yet. */
+   Progress, certificates, quiz marks and trainer courses come from the server (api/lib/airise.php). */
 (() => {
   "use strict";
 
@@ -166,26 +166,6 @@
     return out;
   }
 
-  // Sample learner. Courses 1 to 6 done, Continuous Learning in progress.
-  const SEED = { done: { "continuous-learning": [0, 1, 2] } };
-  COURSES.slice(0, 6).forEach((c) => (SEED.done[c.slug] = lessonsFor(c).map((_, i) => i)));
-  const KEY = "airise-learner-v1";
-  const load = () => {
-    try {
-      const s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.done) return s;
-    } catch (e) {}
-    return JSON.parse(JSON.stringify(SEED));
-  };
-  const save = (s) => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(s));
-    } catch (e) {}
-  };
-  const state = load();
-  const doneCount = (c) => (state.done[c.slug] || []).length;
-  const pct = (c) => Math.round((doneCount(c) / lessonsFor(c).length) * 100);
-
   const esc = (s) =>
     String(s).replace(
       /[&<>"']/g,
@@ -195,6 +175,14 @@
   const thumbClass = (c) =>
     c.phase === 0 ? "thumb--rheti" : c.phase === 2 ? "thumb--p2" : c.phase === 3 ? "thumb--p3" : "";
   const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const initials = (n) =>
+    String(n || "")
+      .split(/\s+/)
+      .map((w) => w[0] || "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
 
   // ---------------------------------------------------------------- shell
   const toggle = $(".menu-btn");
@@ -218,32 +206,76 @@
 
   window.AiRise = { COURSES, PHASES, INSTRUCTOR, lessonsFor, esc, ic, thumbClass };
 
+  // ---------------------------------------------------------------- server data
+  // Progress, certificates, quiz results and published trainer courses come from the server
+  // (api/lib/airise.php). Nothing about a learner is kept in this browser.
+  const api = (path, body) => RH.call(path, body === undefined ? {} : { method: "POST", body });
+  const ST = { done: {}, certs: [], quizzes: [], week: [], catalog: [] };
+  const lessonCount = (c) => (c.trainer ? c.lessonCount : lessonsFor(c).length);
+  const doneCount = (c) => (ST.done[c.key || c.slug] || []).length;
+  const pct = (c) => Math.min(100, Math.round((doneCount(c) / Math.max(1, lessonCount(c))) * 100));
+  const trainerCard = (x) => ({ ...x, key: x.id, slug: x.id, trainer: x.trainer, phase: -1 });
+  const toast = (msg) => {
+    let t = $(".ar-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.className = "ar-toast";
+      t.setAttribute("role", "status");
+      t.style.cssText =
+        "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;background:#0b1b36;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.25);max-width:calc(100% - 32px)";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => (t.hidden = true), 4200);
+  };
+  async function loadState() {
+    Object.assign(ST, await api("airise/state"));
+  }
+  const fail = (e) => {
+    const m = $("#main");
+    if (m && e && e.code !== "not_signed_in")
+      m.insertAdjacentHTML(
+        "afterbegin",
+        `<div class="note" style="margin:16px 0">${esc(e.message || "Could not load AiRise.")}</div>`,
+      );
+  };
+
   // ---------------------------------------------------------------- dashboard
   const page = document.body.dataset.page;
-  if (page === "dashboard") {
+  if (page === "dashboard") loadState().then(dashboard, fail);
+  function dashboard() {
     const series = COURSES.slice(0, 9);
     const finished = series.filter((c) => pct(c) === 100);
     const totalHours = series.reduce((a, c) => a + c.hours, 0);
     const doneHours = series.reduce((a, c) => a + (c.hours * pct(c)) / 100, 0);
-    const current = series.find((c) => pct(c) < 100) || series[8];
+    const current = series.find((c) => pct(c) > 0 && pct(c) < 100) || series.find((c) => pct(c) < 100) || series[8];
     const overall = Math.round((doneHours / totalHours) * 100);
+    const extra = ST.catalog.map(trainerCard);
 
-    // Greeting
     const h = new Date().getHours();
     const g = $("[data-greet]");
     if (g)
       g.textContent = `${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}, ${document.body.dataset.firstName || "there"}`;
 
-    // Banner
-    $("[data-banner-title]").textContent = `Continue ${current.title}: “${current.ask}”`;
+    $("[data-banner-title]").textContent = `${pct(current) ? "Continue" : "Start"} ${current.title}: “${current.ask}”`;
     $("[data-banner-link]").href = `learn.html?course=${current.slug}`;
 
-    // Stat cards (pattern: "2/8 Watched · Product Design")
+    // Quiz average: best score on each graded quiz.
+    const best = {};
+    ST.quizzes.forEach((q) => (best[q.course] = Math.max(best[q.course] || 0, q.score / q.total)));
+    const scores = Object.values(best);
+    const lessonsDone = Object.values(ST.done).reduce((a, l) => a + l.length, 0);
     const stats = [
       ["award", `${finished.length}/9 courses`, "Completed"],
       ["clock", `${Math.round(doneHours)}/${totalHours} hrs`, "Study time"],
-      ["check", "17.5/20", "Quiz average"],
-      ["star", `${finished.length} earned`, "Certificates"],
+      [
+        "check",
+        scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) + "%" : "None yet",
+        "Quiz average",
+      ],
+      ["star", `${ST.certs.length} earned`, "Certificates"],
     ];
     $("[data-stats]").innerHTML = stats
       .map(
@@ -252,30 +284,35 @@
       )
       .join("");
 
-    // Continue learning: in-progress first, then the next courses, then the partner course
     const order = [
       ...series.filter((c) => pct(c) > 0 && pct(c) < 100),
+      ...extra.filter((c) => pct(c) > 0 && pct(c) < 100),
       ...series.filter((c) => pct(c) === 0),
       COURSES[9],
-      ...finished.slice(-2),
+      ...extra.filter((c) => pct(c) === 0),
+      ...series.filter((c) => pct(c) === 100),
+      ...extra.filter((c) => pct(c) === 100),
     ];
     $("[data-continue]").innerHTML = order
       .map((c) => {
         const p = pct(c);
-        const by = c.partner ? ["RT", "Rheti", "Rehohub Training Institute"] : ["JO", INSTRUCTOR, "AiRise instructor"];
-        return `<a class="ccard card" href="learn.html?course=${c.slug}">
-          <div class="thumb ${thumbClass(c)}"><span class="thumb__n">${c.partner ? "Partner" : "Course " + c.n}</span><span class="thumb__model">${c.model}</span>
-            <button class="thumb__heart" type="button" data-toggle aria-pressed="false" aria-label="Save ${esc(c.title)}" onclick="event.preventDefault()">${ic("heart")}</button></div>
-          <span class="pill ${c.partner ? "pill--navy" : ""}" style="align-self:flex-start">${PHASES[c.phase]}</span>
+        const by = c.trainer
+          ? [initials(c.trainer), c.trainer, "AiRise trainer"]
+          : c.partner
+            ? ["RT", "Rheti", "Rehohub Training Institute"]
+            : ["JO", INSTRUCTOR, "AiRise instructor"];
+        const tag = c.trainer ? esc(c.track || "Trainer course") : PHASES[c.phase];
+        return `<a class="ccard card" href="learn.html?course=${esc(c.slug)}">
+          <div class="thumb ${c.trainer ? "thumb--p3" : thumbClass(c)}"${c.trainer && c.cover ? ` style="background-image:url('${RH.url("api/airise/file?id=" + c.cover.id)}');background-size:cover;background-position:center"` : ""}><span class="thumb__n">${c.trainer ? "New" : c.partner ? "Partner" : "Course " + c.n}</span>${c.trainer ? "" : `<span class="thumb__model">${c.model}</span>`}</div>
+          <span class="pill ${c.partner ? "pill--navy" : ""}" style="align-self:flex-start">${tag}</span>
           <h3>${esc(c.title)}</h3>
-          <div class="ccard__meta"><span>${p === 100 ? "Completed" : p === 0 ? "Not started" : p + "% complete"}</span><span>${doneCount(c)}/${lessonsFor(c).length} lessons</span></div>
+          <div class="ccard__meta"><span>${p === 100 ? "Completed" : p === 0 ? "Not started" : p + "% complete"}</span><span>${doneCount(c)}/${lessonCount(c)} lessons</span></div>
           <div class="bar"><i style="width:${p}%"></i></div>
-          <div class="who"><span class="avatar ${c.partner ? "avatar--gold" : ""}">${by[0]}</span><div><b>${by[1]}</b>${by[2]}</div></div>
+          <div class="who"><span class="avatar ${c.partner ? "avatar--gold" : c.trainer ? "avatar--blue" : ""}">${esc(by[0])}</span><div><b>${esc(by[1])}</b>${by[2]}</div></div>
         </a>`;
       })
       .join("");
 
-    // Scroll arrows
     document.querySelectorAll("[data-scroll]").forEach((b) =>
       b.addEventListener("click", () => {
         const row = $(b.dataset.target);
@@ -283,20 +320,81 @@
       }),
     );
 
-    // Ask yourself
     $("[data-ask]").innerHTML = `<b>${esc(current.ask)}</b> ${esc(current.able)}`;
 
-    // Certificates
+    // Next up: the next unfinished lessons in the courses you have started (or the first course).
+    const started = [...series, COURSES[9]].filter((c) => pct(c) > 0 && pct(c) < 100);
+    const next = [];
+    (started.length ? started : [current]).forEach((c) => {
+      const done = new Set(ST.done[c.slug] || []);
+      lessonsFor(c).forEach((l, i) => !done.has(i) && next.length < 4 && next.push([c, l, i]));
+    });
+    const up = $("[data-upcoming]");
+    if (up)
+      up.innerHTML =
+        next
+          .map(
+            ([c, l, i]) =>
+              `<tr><td><div class="who"><span class="avatar ${c.partner ? "avatar--gold" : ""}">${c.partner ? "RT" : "C" + c.n}</span><div><b>${esc(c.title)}</b><small>${c.partner ? "Partner course" : "Course " + c.n}</small></div></div></td><td><span class="pill ${l.kind === "quiz" ? "pill--rose" : l.kind === "practice" ? "" : "pill--navy"}">${l.kind === "quiz" ? "Quiz" : l.kind === "practice" ? "Practice" : "Lesson"}</span></td><td>${esc(l.t)}</td><td>${l.min} mins</td><td><a class="btn btn--ghost btn--sm" href="learn.html?course=${c.slug}&lesson=${i}">Start</a></td></tr>`,
+          )
+          .join("") || `<tr><td colspan="5">You've finished every lesson. Well done.</td></tr>`;
+
     $("[data-certs]").innerHTML =
-      finished
+      ST.certs
         .map(
           (c) =>
-            `<div class="cert card"><span class="cert__seal">${ic("award")}</span><div><b>${esc(c.title)}</b><small>AIR-C${c.n}-2026-${String(40 + c.n * 7).padStart(3, "0")}</small></div></div>`,
+            `<div class="cert card"><span class="cert__seal">${ic("award")}</span><div><b>${esc(c.title)}</b><small>${esc(c.number)}</small></div></div>`,
         )
         .join("") ||
-      `<div class="empty card"><b>No certificates yet</b>Pass a course quiz to earn your first one.</div>`;
+      `<div class="empty card"><b>No certificates yet</b>Finish every lesson of a course to earn one.</div>`;
 
-    // Progress ring
+    const ld = $("[data-lessons-done]");
+    if (ld) ld.textContent = lessonsDone;
+
+    // Study chart: minutes finished on each of the last 7 days.
+    const chart = $("[data-chart]");
+    if (chart) {
+      const days = [...Array(7)].map((_, i) => {
+        const d = new Date(Date.now() - (6 - i) * 864e5);
+        return {
+          key: d.toISOString().slice(0, 10),
+          name: d.toLocaleDateString("en-GB", { weekday: "short" }),
+          quiz: 0,
+          practice: 0,
+          video: 0,
+        };
+      });
+      ST.week.forEach((w) => {
+        const d = days.find((x) => x.key === w.day);
+        if (d) d[w.kind] = (d[w.kind] || 0) + w.min;
+      });
+      const tot = (d) => d.quiz + d.practice + d.video;
+      const max = Math.max(60, ...days.map(tot));
+      chart.innerHTML = days
+        .map(
+          (d) =>
+            `<li title="${tot(d)} minutes"><div class="col" style="height:${Math.round((tot(d) / max) * 100)}%"><i style="flex:${d.quiz}"></i><i style="flex:${d.practice}"></i><i style="flex:${d.video}"></i></div><small>${d.name}</small></li>`,
+        )
+        .join("");
+      const sum = days.reduce((a, d) => a + tot(d), 0);
+      $("[data-chart-sum]").textContent = `Last 7 days · ${Math.round((sum / 60) * 10) / 10} h`;
+    }
+
+    // Mentors: the programme instructor, Rheti, and the trainers of published courses.
+    const mentors = $("[data-mentors]");
+    if (mentors) {
+      const seen = new Set();
+      const tr = ST.catalog.filter((c) => !seen.has(c.trainerId) && seen.add(c.trainerId));
+      mentors.innerHTML =
+        `<li><span class="avatar">JO</span><div><b>${INSTRUCTOR}</b><small>Instructor, AiRise</small></div></li><li><span class="avatar avatar--gold">RT</span><div><b>Rheti trainers</b><small>Entrepreneurship · The Hack</small></div></li>` +
+        tr
+          .map(
+            (c) =>
+              `<li><span class="avatar avatar--blue">${esc(initials(c.trainer))}</span><div><b>${esc(c.trainer)}</b><small><a href="learn.html?course=${esc(c.id)}">${esc(c.title)}</a></small></div></li>`,
+          )
+          .join("");
+    }
+
     const ring = $("[data-ring]");
     if (ring) {
       const r = 50,
@@ -308,7 +406,6 @@
       $("[data-ring-pct]").textContent = overall + "%";
     }
 
-    // Course search filters the continue-learning row
     const q = $("#search");
     if (q)
       q.addEventListener("input", () => {
@@ -322,18 +419,41 @@
   // ---------------------------------------------------------------- course player
   if (page === "learn") {
     const params = new URLSearchParams(location.search);
-    const c = COURSES.find((x) => x.slug === params.get("course")) || COURSES[6];
-    const lessons = lessonsFor(c);
-    if (!state.done[c.slug]) state.done[c.slug] = [];
-    const done = new Set(state.done[c.slug]);
+    const key = params.get("course") || "";
+    const isT = /^t\d+$/.test(key);
+    Promise.all([loadState(), isT ? api("airise/course?id=" + key) : null]).then(
+      ([, r]) => player(isT ? fromTrainer(r.course) : COURSES.find((x) => x.slug === key) || COURSES[0]),
+      fail,
+    );
+  }
+  // A trainer course in the same shape as a series course.
+  function fromTrainer(t) {
+    return {
+      ...t,
+      key: t.id,
+      slug: t.id,
+      phase: -1,
+      model: "",
+      steps: [...new Set(t.lessons.map((l) => l.module).filter(Boolean))],
+      ask: t.summary,
+      able: t.outcomes || t.summary,
+      lessonList: t.lessons,
+    };
+  }
+  function player(c) {
+    const params = new URLSearchParams(location.search);
+    const T = !!c.trainer;
+    const lessons = T ? c.lessonList : lessonsFor(c);
+    const done = new Set(ST.done[c.slug] || []);
     let cur = params.has("lesson") ? Number(params.get("lesson")) : -1;
     if (!(cur >= 0 && cur < lessons.length)) cur = lessons.findIndex((_, i) => !done.has(i));
     if (cur < 0) cur = 0;
 
     document.title = `${c.title} | AiRise Learn`;
     $("[data-c-title]").textContent = c.title;
-    $("[data-c-sub]").textContent =
-      `${PHASES[c.phase]} · Model: ${c.model === "HACK" ? "Idea, Plan, Build, Grow" : c.model}`;
+    $("[data-c-sub]").textContent = T
+      ? `${c.track || "Course"} · ${c.level || ""} · by ${c.trainer}${c.status && c.status !== "published" ? " · preview (not published)" : ""}`
+      : `${PHASES[c.phase]} · Model: ${c.model === "HACK" ? "Idea, Plan, Build, Grow" : c.model}`;
     $("[data-c-hours]").textContent = `About ${c.hours} ${c.n === 10 ? "days" : "hours"}`;
     $("[data-curr-title]").textContent = c.title;
 
@@ -348,65 +468,73 @@
       list.innerHTML = lessons.map((l, i) => (l.kind === "quiz" ? "" : row(l, i))).join("");
       quizList.innerHTML =
         lessons.map((l, i) => (l.kind === "quiz" ? row(l, i) : "")).join("") ||
-        `<li class="note" style="padding:0 4px">This partner course has no quiz. Finish the build plan to complete it.</li>`;
+        `<li class="note" style="padding:0 4px">${c.n === 10 ? "This partner course has no quiz. Finish the build plan to complete it." : "This course has no quiz."}</li>`;
       const p = Math.round((done.size / lessons.length) * 100);
       $("[data-c-prog]").innerHTML =
         `${done.size} of ${lessons.length} lessons · ${p}%<div class="bar"><i style="width:${p}%"></i></div>`;
     }
 
-    let timer = null;
-    function renderLesson() {
-      clearInterval(timer);
-      const l = lessons[cur];
-      const letters = c.model === "HACK" ? c.steps.map((s) => s[0]) : c.model.split("");
-      $("[data-stage]").innerHTML = `
-        <div>
-          <div class="stage__letters" aria-hidden="true">${letters.map((ch, i) => `<b class="${l.step === i ? "on" : ""}">${ch}</b>`).join("")}</div>
+    const fileUrl = (f) => RH.url("api/airise/file?id=" + f.id);
+    function stageFor(l) {
+      if (l.file && /^video\//.test(l.file.mime))
+        return `<video controls preload="metadata" src="${esc(fileUrl(l.file))}" style="width:100%;height:100%;border-radius:inherit;background:#000"></video>`;
+      if (l.file && /^audio\//.test(l.file.mime))
+        return `<div><p class="stage__title">${esc(l.t)}</p><audio controls preload="metadata" src="${esc(fileUrl(l.file))}" style="width:min(420px,100%)"></audio></div>`;
+      if (l.file)
+        return `<div><p class="stage__title">${esc(l.t)}</p><a class="btn btn--gold" href="${esc(fileUrl(l.file))}" target="_blank" rel="noopener">${ic("file")} Open ${esc(l.file.name)}</a></div>`;
+      const letters = T ? [] : c.model === "HACK" ? c.steps.map((s) => s[0]) : c.model.split("");
+      return `<div>
+          ${letters.length ? `<div class="stage__letters" aria-hidden="true">${letters.map((ch, i) => `<b class="${l.step === i ? "on" : ""}">${ch}</b>`).join("")}</div>` : ""}
           <p class="stage__title">${esc(l.t)}</p>
-          <button class="stage__play" type="button" aria-label="Play lesson" data-play>${ic("play")}</button>
-        </div>
-        <div class="stage__bar"><span data-time>0:00</span><div class="bar"><i data-fill></i></div><span>${l.min}:00</span></div>`;
+          <p style="opacity:.8;margin:6px 0 0">${l.kind === "quiz" ? "Answer the questions below." : l.kind === "practice" ? "Practice activity: work through it below, then mark it complete." : T ? "Work through this lesson, then mark it complete." : "The lesson video is being recorded. Use the notes below, then mark it complete."}</p>
+        </div>`;
+    }
+    function quizHtml() {
+      const best = ST.quizzes
+        .filter((q) => q.course === c.slug)
+        .sort((a, b) => b.score / b.total - a.score / a.total)[0];
+      return `<form data-quiz class="stack" style="display:grid;gap:14px;margin-top:12px">${c.questions
+        .map(
+          (q, i) =>
+            `<fieldset class="card" style="padding:14px;border:1px solid var(--line,#e5e7eb)" data-qi="${i}"><legend style="font-weight:700;padding:0 4px">Q${i + 1}. ${esc(q.text)}</legend>${q.opts
+              .map((o, k) =>
+                o
+                  ? `<label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="radio" name="q${i}" value="${k}"> ${esc(o)}</label>`
+                  : "",
+              )
+              .join("")}</fieldset>`,
+        )
+        .join(
+          "",
+        )}${c.scenario ? `<p><b>Scenario task:</b> ${esc(c.scenario)} <small>(discuss with your trainer; it is not marked here)</small></p>` : ""}
+        <p data-quiz-out>${best ? `Your best so far: ${best.score}/${best.total}${best.passed ? " (passed)" : ""}.` : `You need ${c.pass}% to pass. You can try again.`}</p>
+        <button class="btn btn--gold" style="justify-self:start">Submit answers</button></form>`;
+    }
+
+    function renderLesson() {
+      const l = lessons[cur];
+      $("[data-stage]").innerHTML = stageFor(l);
       $("[data-l-kind]").textContent = l.kind === "quiz" ? "Assessment" : l.kind === "practice" ? "Practice" : "Lesson";
       $("[data-l-title]").textContent = l.t;
-      const stepText =
-        l.step !== undefined
+      const stepText = T
+        ? l.kind === "quiz"
+          ? `Multiple choice, marked by AiRise. Pass with ${c.pass}% to finish the course and earn your certificate.`
+          : `Module: <b>${esc(l.module)}</b> · ${esc(l.type)}${l.file ? " · " + esc(l.file.name) : ""}. Work through it, then mark it complete.`
+        : l.step !== undefined
           ? `This lesson covers <b>${esc(c.steps[l.step])}</b>, step ${l.step + 1} of ${c.steps.length} in ${c.model === "HACK" ? "The Hack" : c.model}. Watch the lesson, try the practice activity with your accountability partner, then answer the four check questions.`
           : l.kind === "quiz"
-            ? "Section A has 10 multiple-choice questions (10 minutes, closed book). Section B asks you to apply the model to a realistic scenario (20 minutes). You need 14 out of 20 to pass; 18 or more is a distinction."
+            ? "Section A has 10 multiple-choice questions (10 minutes, closed book). Section B asks you to apply the model to a realistic scenario (20 minutes). You need 14 out of 20 to pass; 18 or more is a distinction. Sit it with your instructor, then mark it complete."
             : "Work through this activity on a real situation from your work or study. Keep notes in your journal; you'll use them in your portfolio.";
-      $("[data-l-body]").innerHTML = stepText;
+      $("[data-l-body]").innerHTML = stepText + (T && l.kind === "quiz" ? quizHtml() : "");
       const btn = $("[data-complete]");
+      const quizOnly = T && l.kind === "quiz";
+      btn.style.display = quizOnly ? "none" : "";
+      btn.disabled = quizOnly;
       btn.innerHTML = done.has(cur) ? `${ic("check")} Completed` : `${ic("check")} Mark as complete`;
       btn.classList.toggle("btn--gold", !done.has(cur));
       $("[data-prev]").disabled = cur === 0;
       $("[data-next]").disabled = cur === lessons.length - 1;
       renderList();
-
-      // Simulated playback (no video files are attached to the course yet)
-      $("[data-play]").addEventListener("click", (e) => {
-        const b = e.currentTarget;
-        const fill = $("[data-fill]"),
-          t = $("[data-time]");
-        if (timer) {
-          clearInterval(timer);
-          timer = null;
-          b.innerHTML = ic("play");
-          return;
-        }
-        b.innerHTML = ic("pause");
-        let s = 0;
-        const total = l.min * 60;
-        timer = setInterval(() => {
-          s = Math.min(total, s + total / 40);
-          fill.style.width = (s / total) * 100 + "%";
-          t.textContent = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-          if (s >= total) {
-            clearInterval(timer);
-            timer = null;
-            b.innerHTML = ic("check");
-          }
-        }, 120);
-      });
     }
 
     const go = (i) => {
@@ -415,45 +543,100 @@
       renderLesson();
       $("#lesson").scrollIntoView({ behavior: "smooth", block: "start" });
     };
+    const celebrate = (cert) =>
+      cert &&
+      !ST.certs.some((x) => x.number === cert) &&
+      (ST.certs.push({ number: cert }), toast(`Course complete. Your certificate number is ${cert}.`));
     document.addEventListener("click", (e) => {
       const b = e.target.closest(".lesson[data-i]");
       if (b) go(Number(b.dataset.i));
     });
     $("[data-prev]").addEventListener("click", () => cur > 0 && go(cur - 1));
     $("[data-next]").addEventListener("click", () => cur < lessons.length - 1 && go(cur + 1));
-    $("[data-complete]").addEventListener("click", () => {
-      done.has(cur) ? done.delete(cur) : done.add(cur);
-      state.done[c.slug] = [...done].sort((a, b) => a - b);
-      save(state);
-      renderLesson();
+    $("[data-complete]").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const want = !done.has(cur);
+      btn.disabled = true;
+      try {
+        const r = await api("airise/progress", { course: c.slug, lesson: cur, done: want });
+        want ? done.add(cur) : done.delete(cur);
+        celebrate(r.cert);
+        if (want && cur < lessons.length - 1 && !done.has(cur + 1)) go(cur + 1);
+        else renderLesson();
+      } catch (er) {
+        toast(er.message);
+      }
+      btn.disabled = false;
+    });
+    document.addEventListener("submit", async (e) => {
+      const f = e.target.closest("[data-quiz]");
+      if (!f) return;
+      e.preventDefault();
+      const answers = c.questions.map((_, i) => {
+        const x = f.querySelector(`[name=q${i}]:checked`);
+        return x ? Number(x.value) : -1;
+      });
+      if (answers.includes(-1)) return toast("Answer every question first.");
+      f.querySelector("button").disabled = true;
+      try {
+        const r = await api("airise/quiz", { course: c.slug, answers });
+        ST.quizzes.unshift({ course: c.slug, score: r.score, total: r.total, passed: r.passed });
+        f.querySelectorAll("[data-mark]").forEach((x) => x.remove());
+        r.right.forEach((ok, i) => {
+          const fs = f.querySelector(`[data-qi="${i}"]`);
+          fs.style.borderColor = ok ? "#16a34a" : "#dc2626";
+          fs.insertAdjacentHTML(
+            "beforeend",
+            `<small data-mark style="display:block;margin-top:6px;color:${ok ? "#15803d" : "#b91c1c"}">${ok ? "Correct" : "Not quite"}</small>`,
+          );
+        });
+        f.querySelector("[data-quiz-out]").innerHTML =
+          `You scored <b>${r.score}/${r.total}</b>. ${r.passed ? "You passed." : `You need ${c.pass}% to pass. Review the lessons and try again.`}`;
+        if (r.passed) {
+          done.add(cur);
+          celebrate(r.cert);
+          renderList();
+        } else f.querySelector("button").disabled = false;
+      } catch (er) {
+        toast(er.message);
+        f.querySelector("button").disabled = false;
+      }
     });
 
-    // About the course
     $("[data-c-ask]").textContent = `“${c.ask}”`;
     $("[data-c-able]").textContent = c.able;
     $("[data-c-steps]").innerHTML = c.steps
       .map(
         (s, i) =>
-          `<li>${ic("check")}<span><b>${c.model === "HACK" ? s : c.model[i]}</b>${c.model === "HACK" ? "" : " · " + esc(s)}</span></li>`,
+          `<li>${ic("check")}<span><b>${T ? esc(s) : c.model === "HACK" ? s : c.model[i]}</b>${T || c.model === "HACK" ? "" : " · " + esc(s)}</span></li>`,
       )
       .join("");
-    $("[data-c-by]").innerHTML = c.partner
-      ? `<span class="avatar avatar--gold">RT</span><div><b>Rheti</b><small>Rehohub Training Institute · partner course</small></div>`
-      : `<span class="avatar">JO</span><div><b>${INSTRUCTOR}</b><small>Instructor, AiRise Employability Skills Training</small></div>`;
+    $("[data-c-by]").innerHTML = T
+      ? `<span class="avatar avatar--blue">${esc(initials(c.trainer))}</span><div><b>${esc(c.trainer)}</b><small>AiRise trainer</small></div>`
+      : c.partner
+        ? `<span class="avatar avatar--gold">RT</span><div><b>Rheti</b><small>Rehohub Training Institute · partner course</small></div>`
+        : `<span class="avatar">JO</span><div><b>${INSTRUCTOR}</b><small>Instructor, AiRise Employability Skills Training</small></div>`;
+    if (T) {
+      const heads = $$(".prose section h2");
+      if (heads[1]) heads[1].textContent = "You'll leave able to";
+      const q = $(".quote small");
+      if (q) q.textContent = "About this course";
+      if (heads[2]) heads[2].textContent = "Modules";
+    }
 
-    // Related courses
-    const rel = [
-      ...COURSES.filter((x) => x.slug !== c.slug && (x.phase === c.phase || x.n === c.n + 1)),
-      ...COURSES.filter((x) => x.slug !== c.slug && x.phase !== c.phase && x.n !== c.n + 1),
-    ].slice(0, 3);
+    const rel = T
+      ? [...ST.catalog.filter((x) => x.id !== c.slug).map(trainerCard), ...COURSES.slice(0, 9)].slice(0, 3)
+      : [
+          ...COURSES.filter((x) => x.slug !== c.slug && (x.phase === c.phase || x.n === c.n + 1)),
+          ...COURSES.filter((x) => x.slug !== c.slug && x.phase !== c.phase && x.n !== c.n + 1),
+        ].slice(0, 3);
     $("[data-related]").innerHTML = rel
       .map(
         (x) =>
-          `<a class="ccard card" href="learn.html?course=${x.slug}"><div class="thumb ${thumbClass(x)}"><span class="thumb__model">${x.model}</span></div><span class="pill" style="align-self:flex-start">${PHASES[x.phase]}</span><h3>${esc(x.title)}</h3><div class="ccard__meta"><span>About ${x.hours} ${x.n === 10 ? "days" : "hours"}</span><span>${pct(x)}%</span></div></a>`,
+          `<a class="ccard card" href="learn.html?course=${esc(x.slug)}"><div class="thumb ${x.trainer ? "thumb--p3" : thumbClass(x)}"><span class="thumb__model">${x.trainer ? "" : x.model}</span></div><span class="pill" style="align-self:flex-start">${x.trainer ? esc(x.track || "Course") : PHASES[x.phase]}</span><h3>${esc(x.title)}</h3><div class="ccard__meta"><span>About ${x.hours} ${x.n === 10 ? "days" : "hours"}</span><span>${pct(x)}%</span></div></a>`,
       )
       .join("");
 
-    // Mobile: collapsible curriculum
     const ct = $(".curr__toggle");
     if (ct)
       ct.addEventListener("click", () => {

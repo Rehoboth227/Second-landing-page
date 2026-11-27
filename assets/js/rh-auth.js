@@ -97,6 +97,41 @@
     return data;
   }
 
+  /** Sends raw bytes (a piece of a file) to an upload route; same session and CSRF checks as call(). */
+  async function raw(path, blob, retry = true) {
+    if (!csrf) await session(true);
+    let res;
+    try {
+      res = await fetch(API + path, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json", "Content-Type": "application/octet-stream", "X-CSRF-Token": csrf || "" },
+        body: blob,
+      });
+    } catch (e) {
+      throw new ApiError("The upload was interrupted. Check your connection and try again.", "offline");
+    }
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new ApiError(
+        res.status === 413 ? "That file is too large for the server." : "The server sent an unexpected response.",
+        "unavailable",
+      );
+    }
+    if (data.csrf) csrf = data.csrf;
+    if (!res.ok || !data.ok) {
+      if (data.error === "csrf" && retry) {
+        await session(true);
+        return raw(path, blob, false);
+      }
+      throw new ApiError(data.message || "Something went wrong.", data.error, data.fields, res.status);
+    }
+    return data;
+  }
+
   async function session(force) {
     if (current && !force) return current;
     return call("session");
@@ -219,6 +254,7 @@
 
   window.RH = {
     call,
+    raw,
     session,
     url,
     loginUrl,

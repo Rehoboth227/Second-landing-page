@@ -216,14 +216,15 @@
             </section>
           </div>
           <p class="note">
-            Lesson videos will appear here once trainers attach them. Progress is saved in this browser only.
+            Your progress is saved to your AiRise account, so it follows you to any device. Finish every lesson of a
+            course to earn its certificate.
           </p>
         </div>
       </main>
     </div>
     <script src="../../assets/js/rh-auth.js"></script>
     <script>
-      RH.guard("airise", ["customer", "trainer"])
+      RH.guard("airise", ["customer", "trainer", "admin"])
         .then(({ user }) => {
           // Greet the signed-in learner by name
           const first = user.full_name.split(" ")[0];

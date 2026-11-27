@@ -52,6 +52,17 @@ return [
         'browser_key' => '',
     ],
 
+    // AiRise course files (lesson videos, PDFs, slides, cover pictures) uploaded by trainers.
+    // storage_dir: a folder the website can write to. Best OUTSIDE public_html, e.g.
+    //              '/home/YOUR_CPANEL_USERNAME/airise-files'. Leave '' to use public_html/api/storage/airise
+    //              (blocked from direct download by api/storage/.htaccess).
+    // max_upload_mb: largest single file. trainer_quota_mb: total space for each trainer.
+    'airise' => [
+        'storage_dir'      => '',
+        'max_upload_mb'    => 500,
+        'trainer_quota_mb' => 5000,
+    ],
+
     // Where to send "new application waiting for approval" alerts. Leave '' to skip.
     'admin_notify_email' => 'info@rehohub.com',
 

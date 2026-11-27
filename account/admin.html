@@ -51,7 +51,24 @@
         <button role="tab" data-tab="users" aria-selected="false" data-super hidden>Users</button>
         <button role="tab" data-tab="invites" aria-selected="false">Invitations</button>
         <button role="tab" data-tab="audit" aria-selected="false" data-super hidden>Activity log</button>
+        <button role="tab" data-tab="courses" aria-selected="false" data-airise hidden>AiRise courses</button>
       </div>
+      <section class="card" data-panel="courses" hidden aria-label="AiRise courses">
+        <div class="filters">
+          <select class="inp" id="c-status" aria-label="Course status">
+            <option value="review">Waiting for review</option>
+            <option value="published">Published</option>
+            <option value="changes">Sent back for changes</option>
+            <option value="all">All except drafts</option>
+          </select>
+        </div>
+        <p class="mute">
+          Trainers' courses only reach learners after you publish them. Preview opens the course as a learner sees it;
+          quiz answers are shown here so you can check them.
+        </p>
+        <div data-course-msg></div>
+        <div id="courses" style="display: grid; gap: 12px"></div>
+      </section>
       <section class="card" data-panel="apps" aria-label="Applications">
         <form id="filters" class="filters" role="search">
           <select class="inp" id="f-status" aria-label="Status">
